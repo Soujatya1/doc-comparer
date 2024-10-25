@@ -1,56 +1,282 @@
 import streamlit as st
-from openai import OpenAI
+from langchain_groq import ChatGroq
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains import create_retrieval_chain
+from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+import os
+import time
+import requests
+from langdetect import detect, DetectorFactory
+from langdetect.lang_detect_exception import LangDetectException
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
+st.title("Document GEN-ie!")
+st.subheader("Talk to your Documents")
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+DetectorFactory.seed = 0
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+def detect_language(text):
+    try:
+        return detect(text)
+    except LangDetectException:
+        return None
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+st.markdown("""
+    <style>
+    .input-box {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 10px;
+        box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
+        z-index: 999;
+    }
+    .conversation-history {
+        max-height: 75vh;
+        overflow-y: auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+if not os.path.exists("uploaded_files"):
+    os.makedirs("uploaded_files")
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
+if 'last_context' not in st.session_state:
+    st.session_state.last_context = ""
 
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+uploaded_files = st.file_uploader("Upload a file", type=["pdf"], accept_multiple_files=True)
+
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        # Save each file temporarily in the created directory
+        file_path = os.path.join("uploaded_files", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+        st.success(f"File '{uploaded_file.name}' uploaded successfully!")
+
+    if "vectors" not in st.session_state:
+        st.session_state.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        st.session_state.loader = PyPDFDirectoryLoader("uploaded_files")
+        st.session_state.docs = st.session_state.loader.load()
+        st.write(f"Loaded {len(st.session_state.docs)} documents.")
+
+        st.session_state.text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+        st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
+        st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
+
+llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
+
+def compare_documents(docs):
+    comparisons = []
+    for i, doc_a in enumerate(docs):
+        for doc_b in docs[i+1:]:
+            # Placeholder for custom comparison logic (e.g., content similarity, keyword matching)
+            common_themes = set(doc_a.page_content.split()) & set(doc_b.page_content.split())
+            differences = set(doc_a.page_content.split()) - set(doc_b.page_content.split())
+            comparisons.append({
+                "Document A": doc_a.metadata.get("source", "Unknown"),
+                "Document B": doc_b.metadata.get("source", "Unknown"),
+                "Common Themes": " ".join(common_themes),
+                "Differences": " ".join(differences)
+            })
+    return comparisons
+
+def create_prompt(input_text):
+    previous_interactions = "\n".join(
+        [f"You: {h['question']}\nBot: {h['answer']}" for h in st.session_state.history[-5:]]
+    )
+    return ChatPromptTemplate.from_template(
+        f"""
+        Answer the questions based on the provided context only.
+        Please provide the most accurate response based on the question.
+        Previous Context: {st.session_state.last_context}
+        Previous Interactions:\n{previous_interactions}
+        <context>
+        {{context}}
+        <context>
+        Questions: {input_text}
+        """
+    )
+
+def translate_text(text, source_language, target_language):
+    api_url = "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline/"
+    user_id = "bdeee189dc694351b6b248754a918885"
+    ulca_api_key = "099c9c6409-1308-4503-8d33-64cc5e49a07f"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {ulca_api_key}",
+        "userID": user_id,
+        "ulcaApiKey": ulca_api_key
+    }
+
+    payload = {
+        "pipelineTasks": [
+            {
+                "taskType": "translation",
+                "config": {
+                    "language": {
+                        "sourceLanguage": source_language,
+                        "targetLanguage": target_language
+                    }
+                }
+            }
+        ],
+        "pipelineRequestConfig": {
+            "pipelineId": "64392f96daac500b55c543cd"
+        }
+    }
+
+    try:
+        response = requests.post(api_url, json=payload, headers=headers)
+        if response.status_code == 200:
+            response_data = response.json()
+            service_id = response_data["pipelineResponseConfig"][0]["config"][0]["serviceId"]
+        else:
+            return text
+
+    except Exception as e:
+        return text
+
+    compute_payload = {
+        "pipelineTasks": [
+            {
+                "taskType": "translation",
+                "config": {
+                    "language": {
+                        "sourceLanguage": source_language,
+                        "targetLanguage": target_language
+                    },
+                    "serviceId": service_id
+                }
+            }
+        ],
+        "inputData": {
+            "input": [
+                {
+                    "source": text
+                }
+            ]
+        }
+    }
+
+    callback_url = response_data["pipelineInferenceAPIEndPoint"]["callbackUrl"]
+    headers2 = {
+        "Content-Type": "application/json",
+        response_data["pipelineInferenceAPIEndPoint"]["inferenceApiKey"]["name"]:
+            response_data["pipelineInferenceAPIEndPoint"]["inferenceApiKey"]["value"]
+    }
+
+    try:
+        compute_response = requests.post(callback_url, json=compute_payload, headers=headers2)
+        if compute_response.status_code == 200:
+            compute_response_data = compute_response.json()
+            translated_content = compute_response_data["pipelineResponse"][0]["output"][0]["target"]
+            return translated_content
+        else:
+            return ""
+
+    except Exception as e:
+        return ""
+
+language_mapping = {
+    "Auto-detect": "",
+    "English": "en",
+    "Kashmiri": "ks",
+    "Nepali": "ne",
+    "Bengali": "bn",
+    "Marathi": "mr",
+    "Sindhi": "sd",
+    "Telugu": "te",
+    "Gujarati": "gu",
+    "Gom": "gom",
+    "Urdu": "ur",
+    "Santali": "sat",
+    "Kannada": "kn",
+    "Malayalam": "ml",
+    "Manipuri": "mni",
+    "Tamil": "ta",
+    "Hindi": "hi",
+    "Punjabi": "pa",
+    "Odia": "or",
+    "Dogri": "doi",
+    "Assamese": "as",
+    "Sanskrit": "sa",
+    "Bodo": "brx",
+    "Maithili": "mai"
+}
+
+language_options = list(language_mapping.keys())
+
+st.header("Conversation History")
+for interaction in st.session_state.history:
+    st.write(f"**You:** {interaction['question']}")
+    st.write(f"**Bot:** {interaction['answer']}")
+    st.write("---")
+
+st.write("---")
+
+with st.sidebar:
+    st.header("Language Selection")
+    selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
+
+input_box = st.empty()
+with input_box.container():
+    prompt1 = st.text_input("Enter your question here.....", key="user_input", placeholder="Type your question...")
+    
+if prompt1 and "vectors" in st.session_state:
+    # Detect the language of the input
+    detected_language = detect_language(prompt1)
+
+    # Set the source language based on user selection or auto-detection
+    if selected_language == "Auto-detect":
+        source_language = detected_language if detected_language else "en"  # Defaults to English
+        st.write(f"Detected language: {detected_language}")
+    else:
+        source_language = language_mapping[selected_language]
+
+    # Translate prompt to English if necessary
+    translated_prompt = translate_text(prompt1, source_language, "en") if source_language != "en" else prompt1
+
+    # Create document retrieval and processing chain
+    document_chain = create_stuff_documents_chain(llm, create_prompt(translated_prompt))
+    retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
+    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+
+    # Retrieve and process response timing
+    start = time.process_time()
+    response = retrieval_chain.invoke({'input': translated_prompt})
+    st.write("Response time:", time.process_time() - start)
+    answer = response['answer']
+
+    # Translate answer back if necessary
+    if selected_language != "English" and selected_language != "Auto-detect":
+        answer = translate_text(answer, "en", language_mapping[selected_language]) or answer
+    elif detected_language != "en":
+        answer = translate_text(answer, "en", detected_language) or answer
+
+    # Store response in history
+    st.session_state.last_context = answer
+    st.session_state.history.append({"question": prompt1, "answer": answer})
+    st.write(f"**Bot:** {answer}")
+
+    # Comparison button for document context
+    if st.button("Compare Documents"):
+        if response.get("context"):
+            comparisons = compare_documents(response["context"])
+            with st.expander("Document Comparison Results"):
+                for comparison in comparisons:
+                    st.write(f"**Comparing:** {comparison['Document A']} & {comparison['Document B']}")
+                    st.write(f"**Common Themes:** {comparison['Common Themes']}")
+                    st.write(f"**Differences:** {comparison['Differences']}")
+                    st.write("---")
