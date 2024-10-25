@@ -8,3 +8,4 @@ sentence_transformers
 langchain
 chromadb
 langdetect
+pandas
