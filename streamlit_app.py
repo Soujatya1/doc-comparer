@@ -13,6 +13,7 @@ import requests
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
 import pandas as pd
+import io
 
 st.title("Document GEN-ie!")
 st.subheader("Talk to your Documents")
@@ -239,10 +240,10 @@ if "vectors" in st.session_state:
         start = time.process_time()
         response = retrieval_chain.invoke({'input': "document comparison"})
         st.write("Response time:", time.process_time() - start)
-        
+
         if response.get("context"):
             comparisons = compare_documents(response["context"])
-            
+
             # Filter only distinct document pairs
             distinct_comparisons = [
                 comp for comp in comparisons if comp["Document A"] != comp["Document B"]
@@ -253,10 +254,25 @@ if "vectors" in st.session_state:
                 "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
                 "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
                 "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
-                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],
+                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],  # Add topic info with default
+                "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
                 "Differences": [comp["Differences"] for comp in distinct_comparisons]
             }
             
             # Create DataFrame and display table
             comparison_df = pd.DataFrame(data)
             st.table(comparison_df)
+
+            # Convert the DataFrame to an Excel file
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
+            excel_buffer.seek(0)
+
+            # Download button for the Excel file
+            st.download_button(
+                label="Download Comparison Results as Excel",
+                data=excel_buffer,
+                file_name='comparison_results.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
