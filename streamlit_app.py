@@ -12,6 +12,7 @@ import time
 import requests
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
+import pandas as pd
 
 st.title("Document GEN-ie!")
 st.subheader("Talk to your Documents")
@@ -242,12 +243,19 @@ if "vectors" in st.session_state:
         response = retrieval_chain.invoke({'input': "document comparison"})
         st.write("Response time:", time.process_time() - start)
         
-        # Check if the response contains a context for comparison
+        # Check if the response contains context for comparison
         if response.get("context"):
             comparisons = compare_documents(response["context"])
-            with st.expander("Document Comparison Results"):
-                for comparison in comparisons:
-                    st.write(f"**Comparing:** {comparison['Document A']} & {comparison['Document B']}")
-                    st.write(f"**Common Themes:** {comparison['Common Themes']}")
-                    st.write(f"**Differences:** {comparison['Differences']}")
-                    st.write("---")
+            
+            # Prepare data for tabular output
+            data = {
+                "Document A": [comp["Document A"] for comp in comparisons],
+                "Document B": [comp["Document B"] for comp in comparisons],
+                "Common Themes": [comp["Common Themes"] for comp in comparisons],
+                "Differences": [comp["Differences"] for comp in comparisons]
+            }
+            # Convert data to a DataFrame
+            comparison_df = pd.DataFrame(data)
+            
+            # Display the DataFrame as a table in Streamlit
+            st.table(comparison_df)
