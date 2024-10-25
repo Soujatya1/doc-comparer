@@ -231,31 +231,37 @@ with st.sidebar:
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 if "vectors" in st.session_state:
-    # Create the document retrieval chain
+    # Set up the document retrieval chain
     document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
     # Comparison button to initiate document processing
     if st.button("Compare Documents"):
-        # Process and retrieve the response with timing
+        # Process documents and measure response time
         start = time.process_time()
         response = retrieval_chain.invoke({'input': "document comparison"})
         st.write("Response time:", time.process_time() - start)
         
-        # Check if the response contains context for comparison
+        # Process response if it contains context
         if response.get("context"):
             comparisons = compare_documents(response["context"])
             
-            # Prepare data for tabular output
+            # Filter only distinct document pairs (no self-comparisons)
+            distinct_comparisons = [
+                comp for comp in comparisons if comp["Document A"] != comp["Document B"]
+            ]
+            
+            # Organize data for tabular format, explicitly tagging each document
             data = {
-                "Document A": [comp["Document A"] for comp in comparisons],
-                "Document B": [comp["Document B"] for comp in comparisons],
-                "Common Themes": [comp["Common Themes"] for comp in comparisons],
-                "Differences": [comp["Differences"] for comp in comparisons]
+                "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
+                "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
+                "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
+                "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
+                "Differences": [comp["Differences"] for comp in distinct_comparisons]
             }
             # Convert data to a DataFrame
             comparison_df = pd.DataFrame(data)
             
-            # Display the DataFrame as a table in Streamlit
+            # Display as a table
             st.table(comparison_df)
