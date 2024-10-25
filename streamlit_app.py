@@ -234,44 +234,20 @@ input_box = st.empty()
 with input_box.container():
     prompt1 = st.text_input("Enter your question here.....", key="user_input", placeholder="Type your question...")
     
-if prompt1 and "vectors" in st.session_state:
-    # Detect the language of the input
-    detected_language = detect_language(prompt1)
-
-    # Set the source language based on user selection or auto-detection
-    if selected_language == "Auto-detect":
-        source_language = detected_language if detected_language else "en"  # Defaults to English
-        st.write(f"Detected language: {detected_language}")
-    else:
-        source_language = language_mapping[selected_language]
-
-    # Translate prompt to English if necessary
-    translated_prompt = translate_text(prompt1, source_language, "en") if source_language != "en" else prompt1
-
-    # Create document retrieval and processing chain
-    document_chain = create_stuff_documents_chain(llm, create_prompt(translated_prompt))
+if "vectors" in st.session_state:
+    # Create the document retrieval chain
+    document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-    # Retrieve and process response timing
-    start = time.process_time()
-    response = retrieval_chain.invoke({'input': translated_prompt})
-    st.write("Response time:", time.process_time() - start)
-    answer = response['answer']
-
-    # Translate answer back if necessary
-    if selected_language != "English" and selected_language != "Auto-detect":
-        answer = translate_text(answer, "en", language_mapping[selected_language]) or answer
-    elif detected_language != "en":
-        answer = translate_text(answer, "en", detected_language) or answer
-
-    # Store response in history
-    st.session_state.last_context = answer
-    st.session_state.history.append({"question": prompt1, "answer": answer})
-    st.write(f"**Bot:** {answer}")
-
-    # Comparison button for document context
+    # Comparison button to initiate document processing
     if st.button("Compare Documents"):
+        # Process and retrieve the response with timing
+        start = time.process_time()
+        response = retrieval_chain.invoke({'input': "document comparison"})
+        st.write("Response time:", time.process_time() - start)
+        
+        # Check if the response contains a context for comparison
         if response.get("context"):
             comparisons = compare_documents(response["context"])
             with st.expander("Document Comparison Results"):
