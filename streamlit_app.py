@@ -97,8 +97,7 @@ def create_prompt(input_text):
     )
     return ChatPromptTemplate.from_template(
         f"""
-        Answer the questions based on the provided context only.
-        Please provide the most accurate response based on the question.
+        Compare the uploaded documents based on their differences and form a good context on the same.
         Previous Context: {st.session_state.last_context}
         Previous Interactions:\n{previous_interactions}
         <context>
@@ -229,8 +228,6 @@ st.write("---")
 with st.sidebar:
     st.header("Language Selection")
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
-
-st.button("Compare Documents")
     
 if "vectors" in st.session_state:
     # Create the document retrieval chain
