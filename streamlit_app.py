@@ -230,9 +230,7 @@ with st.sidebar:
     st.header("Language Selection")
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
 
-input_box = st.empty()
-with input_box.container():
-    prompt1 = st.text_input("Enter your question here.....", key="user_input", placeholder="Type your question...")
+st.button("Compare Documents")
     
 if "vectors" in st.session_state:
     # Create the document retrieval chain
