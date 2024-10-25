@@ -253,8 +253,7 @@ if "vectors" in st.session_state:
                 "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
                 "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
                 "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
-                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],  # Add topic info with default
-                "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
+                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],
                 "Differences": [comp["Differences"] for comp in distinct_comparisons]
             }
             
