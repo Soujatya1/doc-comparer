@@ -15,8 +15,8 @@ from langdetect.lang_detect_exception import LangDetectException
 import pandas as pd
 import io
 
-st.title("Document GEN-ie!")
-st.subheader("Talk to your Documents")
+st.title("Document Comparer")
+st.subheader("Compare your Documents")
 
 DetectorFactory.seed = 0
 
