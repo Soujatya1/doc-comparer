@@ -231,19 +231,15 @@ with st.sidebar:
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 if "vectors" in st.session_state:
-    # Initialize the document retrieval chain
     document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-    # Button to start document comparison
     if st.button("Compare Documents"):
-        # Execute retrieval and measure response time
         start = time.process_time()
         response = retrieval_chain.invoke({'input': "document comparison"})
         st.write("Response time:", time.process_time() - start)
         
-        # If context is available, proceed with comparison
         if response.get("context"):
             comparisons = compare_documents(response["context"])
             
@@ -252,12 +248,12 @@ if "vectors" in st.session_state:
                 comp for comp in comparisons if comp["Document A"] != comp["Document B"]
             ]
             
-            # Prepare data for tabular format with topic information
+            # Prepare data for tabular format
             data = {
                 "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
                 "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
                 "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
-                "Topic": [comp["Topic"] for comp in distinct_comparisons],  # Add topic information
+                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],  # Add topic info with default
                 "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
                 "Differences": [comp["Differences"] for comp in distinct_comparisons]
             }
