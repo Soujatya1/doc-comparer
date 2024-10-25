@@ -231,38 +231,37 @@ with st.sidebar:
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 if "vectors" in st.session_state:
-    # Set up the document retrieval chain
+    # Initialize the document retrieval chain
     document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-    # Comparison button to initiate document processing
+    # Button to start document comparison
     if st.button("Compare Documents"):
-        # Process documents and measure response time
+        # Execute retrieval and measure response time
         start = time.process_time()
         response = retrieval_chain.invoke({'input': "document comparison"})
         st.write("Response time:", time.process_time() - start)
         
-        # Process response if it contains context
+        # If context is available, proceed with comparison
         if response.get("context"):
             comparisons = compare_documents(response["context"])
             
-            # Filter only distinct document pairs (no self-comparisons)
+            # Filter only distinct document pairs
             distinct_comparisons = [
                 comp for comp in comparisons if comp["Document A"] != comp["Document B"]
             ]
             
-            # Organize data for tabular format, explicitly tagging each document
+            # Prepare data for tabular format with topic information
             data = {
                 "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
                 "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
                 "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
-                "Topic": [comp["Topic"] for comp in distinct_comparisons],
-                #"Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
+                "Topic": [comp["Topic"] for comp in distinct_comparisons],  # Add topic information
+                "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
                 "Differences": [comp["Differences"] for comp in distinct_comparisons]
             }
-            # Convert data to a DataFrame
-            comparison_df = pd.DataFrame(data)
             
-            # Display as a table
+            # Create DataFrame and display table
+            comparison_df = pd.DataFrame(data)
             st.table(comparison_df)
