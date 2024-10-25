@@ -9,3 +9,4 @@ langchain
 chromadb
 langdetect
 pandas
+xlsxwriter
