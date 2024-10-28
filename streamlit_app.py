@@ -83,38 +83,34 @@ if uploaded_files:
 
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
-def read_docx(file):
-    # Read from the BytesIO object directly
-    doc = Document(io.BytesIO(file.read()))
-    text = []
-    for paragraph in doc.paragraphs:
-        text.append(paragraph.text)
-    return '\n'.join(text)
-
-# Function to compare documents and find precise differences
 def compare_documents(context):
     comparisons = []
     for i, doc_a in enumerate(context):
         for j, doc_b in enumerate(context[i + 1:], start=i + 1):
-            text_a = doc_a["page_content"]  # Adjust based on your Document structure
-            text_b = doc_b["page_content"]  # Adjust based on your Document structure
+            # Extract text content from Document objects
+            text_a = doc_a.page_content  # Adjust based on your Document structure
+            text_b = doc_b.page_content  # Adjust based on your Document structure
 
+            # Split document content into sentences
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
 
             unique_a = []
             unique_b = []
 
+            # Compare each sentence between Document A and Document B
             for sentence_a in sentences_a:
                 highest_similarity = 0
                 most_similar_b = None
 
+                # Find the most similar sentence in Document B
                 for sentence_b in sentences_b:
                     similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
                     if similarity > highest_similarity:
                         highest_similarity = similarity
                         most_similar_b = sentence_b
 
+                # Only add unique text segments
                 if highest_similarity < 0.8:  # Adjust similarity threshold as needed
                     unique_a.append(sentence_a.strip())
                     if most_similar_b:
@@ -122,6 +118,7 @@ def compare_documents(context):
                     else:
                         unique_b.append("[No matching text in Document B]")
 
+            # Append only if there are unique sections
             if unique_a or unique_b:
                 comparisons.append({
                     "Document A": f"Document {i + 1}",
@@ -270,6 +267,7 @@ with st.sidebar:
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 def display_comparisons(comparisons):
+    # Prepare data for tabular format
     data = {
         "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
@@ -278,14 +276,17 @@ def display_comparisons(comparisons):
         "Unique in Document B": [comp["Unique in Document B"] for comp in comparisons]
     }
 
+    # Create DataFrame and display table
     comparison_df = pd.DataFrame(data)
     st.table(comparison_df)
 
+    # Convert the DataFrame to an Excel file
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
         comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
     excel_buffer.seek(0)
 
+    # Download button for the Excel file
     st.download_button(
         label="Download Comparison Results as Excel",
         data=excel_buffer,
@@ -294,50 +295,23 @@ def display_comparisons(comparisons):
     )
 
 # Main Streamlit app code
-st.title("Document Comparison Tool")
+if "vectors" in st.session_state:
+    document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
+    retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
+    retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-# Upload documents
-uploaded_files = st.file_uploader("Upload Document A and Document B", type=["pdf", "docx"], accept_multiple_files=True)
+    if st.button("Compare Documents"):
+        start = time.process_time()
+        response = retrieval_chain.invoke({'input': "document comparison"})
+        st.write("Response time:", time.process_time() - start)
 
-if uploaded_files:
-    if len(uploaded_files) != 2:
-        st.warning("Please upload exactly two documents for comparison.")
-    else:
-        doc_name_a = st.text_input("Name for Document A", value="Document A")
-        doc_name_b = st.text_input("Name for Document B", value="Document B")
+        if response.get("context"):
+            comparisons = compare_documents(response["context"])
 
-        documents = []
-        for uploaded_file in uploaded_files:
-            if uploaded_file.type == "application/pdf":
-                loader = PyPDFLoader(uploaded_file)
-                document = loader.load()
-                documents.extend(document)
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                text = read_docx(uploaded_file)  # Read DOCX content
-                documents.append({"page_content": text})  # Adjust to your Document structure
+            # Filter only distinct document pairs
+            distinct_comparisons = [
+                comp for comp in comparisons if comp["Document A"] != comp["Document B"]
+            ]
 
-        st.session_state.vectors = documents  # Store loaded documents in session state
-
-        if st.button("Compare Documents"):
-            document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
-            retriever = st.session_state.vectors  # Use the loaded documents directly
-            retrieval_chain = create_retrieval_chain(retriever, document_chain)
-
-            start = time.process_time()
-            response = retrieval_chain.invoke({'input': "document comparison"})
-            st.write("Response time:", time.process_time() - start)
-
-            if response.get("context"):
-                comparisons = compare_documents(response["context"])
-
-                # Filter only distinct document pairs
-                distinct_comparisons = [
-                    comp for comp in comparisons if comp["Document A"] != comp["Document B"]
-                ]
-
-                # Update document names in comparisons
-                for comp in distinct_comparisons:
-                    comp["Document A"] = doc_name_a
-                    comp["Document B"] = doc_name_b
-
-                display_comparisons(distinct_comparisons)
+            # Display the distinct comparisons
+            display_comparisons(distinct_comparisons)
