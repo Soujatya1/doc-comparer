@@ -84,7 +84,8 @@ if uploaded_files:
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
 def read_docx(file):
-    doc = Document(file)
+    # Read from the BytesIO object directly
+    doc = Document(io.BytesIO(file.read()))
     text = []
     for paragraph in doc.paragraphs:
         text.append(paragraph.text)
@@ -95,8 +96,8 @@ def compare_documents(context):
     comparisons = []
     for i, doc_a in enumerate(context):
         for j, doc_b in enumerate(context[i + 1:], start=i + 1):
-            text_a = doc_a.page_content  # Adjust based on your Document structure
-            text_b = doc_b.page_content  # Adjust based on your Document structure
+            text_a = doc_a["page_content"]  # Adjust based on your Document structure
+            text_b = doc_b["page_content"]  # Adjust based on your Document structure
 
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
