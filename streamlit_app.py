@@ -20,6 +20,7 @@ import numpy as np
 from difflib import SequenceMatcher
 from langchain.document_loaders import PyPDFLoader
 from docx import Document
+from langchain.chains import LLMChain
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
