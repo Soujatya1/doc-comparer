@@ -17,6 +17,7 @@ import io
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from difflib import SequenceMatcher
+from langchain.document_loaders import PyPDFLoader, DocxLoader
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
@@ -308,13 +309,27 @@ if uploaded_files:
         doc_name_a = st.text_input("Name for Document A", value="Document A")
         doc_name_b = st.text_input("Name for Document B", value="Document B")
 
+        # Load documents into appropriate structures
+        documents = []
+        for uploaded_file in uploaded_files:
+            if uploaded_file.type == "application/pdf":
+                loader = PyPDFLoader(uploaded_file)
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                loader = DocxLoader(uploaded_file)
+            else:
+                st.warning(f"Unsupported file type: {uploaded_file.type}")
+                continue
+            
+            # Load the document and append it to the documents list
+            document = loader.load()
+            documents.extend(document)
+
         # Store the documents in session state for further processing
-        if "vectors" not in st.session_state:
-            st.session_state.vectors = uploaded_files  # Store uploaded files in session state
+        st.session_state.vectors = documents  # Store loaded documents in session state
 
         if st.button("Compare Documents"):
             document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
-            retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
+            retriever = st.session_state.vectors  # Use the loaded documents directly
             retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
             start = time.process_time()
