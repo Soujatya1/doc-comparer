@@ -17,7 +17,8 @@ import io
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from difflib import SequenceMatcher
-from langchain.document_loaders import PyPDFLoader, DocxLoader
+from langchain.document_loaders import PyPDFLoader
+from docx import Document
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
@@ -82,34 +83,37 @@ if uploaded_files:
 
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
+def read_docx(file):
+    doc = Document(file)
+    text = []
+    for paragraph in doc.paragraphs:
+        text.append(paragraph.text)
+    return '\n'.join(text)
+
+# Function to compare documents and find precise differences
 def compare_documents(context):
     comparisons = []
     for i, doc_a in enumerate(context):
         for j, doc_b in enumerate(context[i + 1:], start=i + 1):
-            # Extract text content from Document objects
             text_a = doc_a.page_content  # Adjust based on your Document structure
             text_b = doc_b.page_content  # Adjust based on your Document structure
 
-            # Split document content into sentences
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
 
             unique_a = []
             unique_b = []
 
-            # Compare each sentence between Document A and Document B
             for sentence_a in sentences_a:
                 highest_similarity = 0
                 most_similar_b = None
 
-                # Find the most similar sentence in Document B
                 for sentence_b in sentences_b:
                     similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
                     if similarity > highest_similarity:
                         highest_similarity = similarity
                         most_similar_b = sentence_b
 
-                # Only add unique text segments
                 if highest_similarity < 0.8:  # Adjust similarity threshold as needed
                     unique_a.append(sentence_a.strip())
                     if most_similar_b:
@@ -117,7 +121,6 @@ def compare_documents(context):
                     else:
                         unique_b.append("[No matching text in Document B]")
 
-            # Append only if there are unique sections
             if unique_a or unique_b:
                 comparisons.append({
                     "Document A": f"Document {i + 1}",
@@ -126,8 +129,6 @@ def compare_documents(context):
                     "Unique in Document B": " | ".join(unique_b)
                 })
     return comparisons
-
-
 
 def create_prompt(input_text):
     previous_interactions = "\n".join(
@@ -268,7 +269,6 @@ with st.sidebar:
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 def display_comparisons(comparisons):
-    # Prepare data for tabular format
     data = {
         "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
@@ -277,17 +277,14 @@ def display_comparisons(comparisons):
         "Unique in Document B": [comp["Unique in Document B"] for comp in comparisons]
     }
 
-    # Create DataFrame and display table
     comparison_df = pd.DataFrame(data)
     st.table(comparison_df)
 
-    # Convert the DataFrame to an Excel file
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
         comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
     excel_buffer.seek(0)
 
-    # Download button for the Excel file
     st.download_button(
         label="Download Comparison Results as Excel",
         data=excel_buffer,
@@ -305,26 +302,19 @@ if uploaded_files:
     if len(uploaded_files) != 2:
         st.warning("Please upload exactly two documents for comparison.")
     else:
-        # Text input for naming documents
         doc_name_a = st.text_input("Name for Document A", value="Document A")
         doc_name_b = st.text_input("Name for Document B", value="Document B")
 
-        # Load documents into appropriate structures
         documents = []
         for uploaded_file in uploaded_files:
             if uploaded_file.type == "application/pdf":
                 loader = PyPDFLoader(uploaded_file)
+                document = loader.load()
+                documents.extend(document)
             elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                loader = DocxLoader(uploaded_file)
-            else:
-                st.warning(f"Unsupported file type: {uploaded_file.type}")
-                continue
-            
-            # Load the document and append it to the documents list
-            document = loader.load()
-            documents.extend(document)
+                text = read_docx(uploaded_file)  # Read DOCX content
+                documents.append({"page_content": text})  # Adjust to your Document structure
 
-        # Store the documents in session state for further processing
         st.session_state.vectors = documents  # Store loaded documents in session state
 
         if st.button("Compare Documents"):
@@ -349,5 +339,4 @@ if uploaded_files:
                     comp["Document A"] = doc_name_a
                     comp["Document B"] = doc_name_b
 
-                # Display the distinct comparisons
                 display_comparisons(distinct_comparisons)
