@@ -81,33 +81,45 @@ if uploaded_files:
 
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
-def compare_documents(docs):
+def compare_documents(context):
     comparisons = []
-    for i, doc_a in enumerate(docs):
-        for j, doc_b in enumerate(docs[i + 1:], start=i + 1):
-            # Split document content into sentences
-            sentences_a = doc_a.page_content.split('. ')
-            sentences_b = doc_b.page_content.split('. ')
+    for i, doc_a in enumerate(context):
+        for j, doc_b in enumerate(context[i + 1:], start=i + 1):
+            # Split document content into sentences and phrases
+            sentences_a = doc_a.split('. ')
+            sentences_b = doc_b.split('. ')
+
+            unique_a = []
+            unique_b = []
 
             # Compare each sentence between Document A and Document B
             for sentence_a in sentences_a:
-                # Find the most similar sentence in Document B
                 highest_similarity = 0
                 most_similar_b = None
+
+                # Find the most similar sentence in Document B
                 for sentence_b in sentences_b:
                     similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
                     if similarity > highest_similarity:
                         highest_similarity = similarity
                         most_similar_b = sentence_b
 
-                # If sentences are not similar enough, mark them as differences
-                if highest_similarity < 0.8:  # Adjust threshold as needed
-                    comparisons.append({
-                        "Document A": doc_a.metadata.get("source", f"Document {i+1}"),
-                        "Document B": doc_b.metadata.get("source", f"Document {j+1}"),
-                        "Text in Document A": sentence_a,
-                        "Text in Document B": most_similar_b if most_similar_b else "[No similar text in Document B]"
-                    })
+                # Only add unique text segments
+                if highest_similarity < 0.8:
+                    unique_a.append(sentence_a)
+                    if most_similar_b:
+                        unique_b.append(most_similar_b)
+                    else:
+                        unique_b.append("[No matching text in Document B]")
+
+            # Append only if there are unique sections
+            if unique_a or unique_b:
+                comparisons.append({
+                    "Document A": f"Document {i+1}",
+                    "Document B": f"Document {j+1}",
+                    "Unique in Document A": " | ".join(unique_a),
+                    "Unique in Document B": " | ".join(unique_b)
+                })
     return comparisons
 
 
@@ -256,8 +268,8 @@ def display_comparisons(comparisons):
         "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
         "Document B": [comp['Document B'] for comp in comparisons],
-        "Text in Document A": [comp["Text in Document A"] for comp in comparisons],
-        "Text in Document B": [comp["Text in Document B"] for comp in comparisons]
+        "Unique in Document A": [comp["Unique in Document A"] for comp in comparisons],
+        "Unique in Document B": [comp["Unique in Document B"] for comp in comparisons]
     }
 
     # Create DataFrame and display table
