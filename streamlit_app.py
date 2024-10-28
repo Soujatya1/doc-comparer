@@ -62,34 +62,40 @@ def compare_documents(documents):
     for i, doc_a in enumerate(documents):
         for j, doc_b in enumerate(documents[i + 1:], start=i + 1):
             # Extract text content from Document objects
-            text_a = doc_a.page_content  # Adjust this based on your Document structure
+            text_a = doc_a.page_content  # Adjust based on your Document structure
             text_b = doc_b.page_content
 
-            # Split document content into sentences
-            sentences_a = text_a.split('. ')
-            sentences_b = text_b.split('. ')
+            # Split document content into sentences or phrases
+            phrases_a = text_a.split('. ')
+            phrases_b = text_b.split('. ')
 
-            # Compare sentences between Document A and Document B
-            for sentence_a in sentences_a:
-                # Default to indicate no similar sentence in Document B
-                most_similar_b = "[No similar text in Document B]"
+            # Compare phrases between Document A and Document B
+            for phrase_a in phrases_a:
+                # Find most similar phrase in Document B
                 highest_similarity = 0
+                most_similar_b = None
 
-                for sentence_b in sentences_b:
-                    # Calculate similarity ratio
-                    similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
+                for phrase_b in phrases_b:
+                    similarity = SequenceMatcher(None, phrase_a, phrase_b).ratio()
                     if similarity > highest_similarity:
                         highest_similarity = similarity
-                        most_similar_b = sentence_b
+                        most_similar_b = phrase_b
 
-                # If similarity is low, consider them different
-                if highest_similarity < 0.8:  # You can adjust the threshold
-                    comparisons.append({
-                        "Document A": f"Document {i + 1}",
-                        "Document B": f"Document {j + 1}",
-                        "Text in Document A": sentence_a,
-                        "Text in Document B": most_similar_b
-                    })
+                # If phrases are different, find specific word-level differences
+                if highest_similarity < 0.8:  # Adjust threshold if needed
+                    words_a = phrase_a.split()
+                    words_b = most_similar_b.split() if most_similar_b else []
+
+                    # Compare each word in the phrase for fine-grained differences
+                    for idx, word_a in enumerate(words_a):
+                        word_b = words_b[idx] if idx < len(words_b) else "[No matching word]"
+                        if word_a != word_b:
+                            comparisons.append({
+                                "Document A": f"Document {i + 1}",
+                                "Document B": f"Document {j + 1}",
+                                "Text in Document A": word_a,
+                                "Text in Document B": word_b
+                            })
 
     return comparisons
 
@@ -131,7 +137,7 @@ def display_comparisons(comparisons):
 
     # Download button for the Excel file
     st.download_button(
-        label="Download Comparison Results",
+        label="Download Comparison Results as Excel",
         data=excel_buffer,
         file_name='comparison_results.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -152,10 +158,5 @@ if "vectors" in st.session_state:
             # Assuming response["context"] is a list of Document objects
             comparisons = compare_documents(response["context"])
 
-            # Filter only distinct document pairs
-            distinct_comparisons = [
-                comp for comp in comparisons if comp["Document A"] != comp["Document B"]
-            ]
-
             # Display the distinct comparisons
-            display_comparisons(distinct_comparisons)
+            display_comparisons(comparisons)
