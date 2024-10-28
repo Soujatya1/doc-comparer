@@ -277,12 +277,12 @@ if "vectors" in st.session_state:
             
             # Prepare data for tabular format
             data = {
-                "Comparison ID": [f"{i+1}" for i in range(len(distinct_comparisons))],
-                "Document A": [f"Document A: {comp['Document A']}" for comp in distinct_comparisons],
-                "Document B": [f"Document B: {comp['Document B']}" for comp in distinct_comparisons],
-                "Topic": [comp.get("Topic", "Unknown Topic") for comp in distinct_comparisons],  # Add topic info with default
-                "Common Themes": [comp["Common Themes"] for comp in distinct_comparisons],
-                "Differences": [comp["Differences"] for comp in distinct_comparisons]
+                "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
+                "Document A": [f"Document A: {comp['Document A']}" for comp in comparisons],
+                "Document B": [f"Document B: {comp['Document B']}" for comp in comparisons],
+                "Common Themes": [comp["Common Themes"] for comp in comparisons],
+                "Differences in Document A": [comp["Differences A"] for comp in comparisons],
+                "Differences in Document B": [comp["Differences B"] for comp in comparisons]
             }
             
             # Create DataFrame and display table
