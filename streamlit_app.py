@@ -54,8 +54,93 @@ if uploaded_files:
         st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
         st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
 
+topic_extraction_prompt = PromptTemplate(
+    input_variables=["document"],
+    template="Identify and list the main topics or sections in the following document:\n\n{document}\n\nReturn each topic as a separate line."
+)
+
+comparison_prompt = PromptTemplate(
+    input_variables=["topic", "doc_a_content", "doc_b_content"],
+    template="For the topic '{topic}', compare the content from two documents. "
+             "List any differences between Document A and Document B, focusing on meaning and important details. "
+             "If no differences, state 'No significant difference'.\n\n"
+             "Document A:\n{doc_a_content}\n\nDocument B:\n{doc_b_content}\n\nDifferences:"
+)
+
+def extract_topics(llm_chain, document_text):
+    response = llm_chain.run({"document": document_text})
+    return response.splitlines()
+
+def compare_topics(llm_chain, topics, doc_a, doc_b):
+    comparisons = []
+    for topic in topics:
+        response = llm_chain.run({
+            "topic": topic,
+            "doc_a_content": doc_a,
+            "doc_b_content": doc_b
+        })
+        
+        if "No significant difference" not in response:
+            comparisons.append({
+                "Topic": topic,
+                "Differences": response.strip()
+            })
+    return comparisons
+
+# Display the comparison results in a table
+def display_comparisons(comparisons):
+    # Prepare data for tabular format
+    data = {
+        "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
+        "Topic": [comp['Topic'] for comp in comparisons],
+        "Differences": [comp["Differences"] for comp in comparisons]
+    }
+    
+    # Create DataFrame and display table
+    comparison_df = pd.DataFrame(data)
+    st.table(comparison_df)
+    
+    # Convert the DataFrame to an Excel file
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
+    excel_buffer.seek(0)
+    
+    # Download button for the Excel file
+    st.download_button(
+        label="Download Comparison Results as Excel",
+        data=excel_buffer,
+        file_name='comparison_results.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
+uploaded_file_a = st.file_uploader("Upload Document A", type=["txt", "pdf"])
+uploaded_file_b = st.file_uploader("Upload Document B", type=["txt", "pdf"])
+
+if uploaded_file_a and uploaded_file_b:
+    # Load document content
+    doc_a = uploaded_file_a.read().decode("utf-8")
+    doc_b = uploaded_file_b.read().decode("utf-8")
+    
+    # Initialize LLM chains
+    topic_llm_chain = LLMChain(prompt=topic_extraction_prompt, llm=llm)
+    comparison_llm_chain = LLMChain(prompt=comparison_prompt, llm=llm)
+
+    # Extract topics from Document A as a reference
+    topics = extract_topics(topic_llm_chain, doc_a)
+    st.write("Extracted Topics:", topics)
+
+    # Compare topics between Document A and Document B
+    if st.button("Compare Documents by Topic"):
+        start = time.process_time()
+        comparisons = compare_topics(comparison_llm_chain, topics, doc_a, doc_b)
+        st.write("Response time:", time.process_time() - start)
+
+        # Display the distinct comparisons
+        display_comparisons(comparisons)
+        
 def compare_documents(documents):
     comparisons = []
     
