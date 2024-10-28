@@ -89,9 +89,9 @@ def compare_documents(docs):
             sentences_a = doc_a.page_content.split(". ")
             sentences_b = doc_b.page_content.split(". ")
             
-            # Generate embeddings for sentences
-            embeddings_a = st.session_state.embeddings.embed_text(sentences_a)
-            embeddings_b = st.session_state.embeddings.embed_text(sentences_b)
+            # Generate embeddings for sentences using embed_documents
+            embeddings_a = st.session_state.embeddings.embed_documents(sentences_a)
+            embeddings_b = st.session_state.embeddings.embed_documents(sentences_b)
 
             # Compute cosine similarity between each sentence pair
             similarities = cosine_similarity(embeddings_a, embeddings_b)
