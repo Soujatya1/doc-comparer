@@ -85,9 +85,13 @@ def compare_documents(context):
     comparisons = []
     for i, doc_a in enumerate(context):
         for j, doc_b in enumerate(context[i + 1:], start=i + 1):
-            # Split document content into sentences and phrases
-            sentences_a = doc_a.split('. ')
-            sentences_b = doc_b.split('. ')
+            # Extract text content from Document objects
+            text_a = doc_a.page_content  # Adjust based on your Document structure
+            text_b = doc_b.page_content  # Adjust based on your Document structure
+
+            # Split document content into sentences
+            sentences_a = text_a.split('. ')
+            sentences_b = text_b.split('. ')
 
             unique_a = []
             unique_b = []
@@ -105,18 +109,18 @@ def compare_documents(context):
                         most_similar_b = sentence_b
 
                 # Only add unique text segments
-                if highest_similarity < 0.8:
-                    unique_a.append(sentence_a)
+                if highest_similarity < 0.8:  # Adjust similarity threshold as needed
+                    unique_a.append(sentence_a.strip())
                     if most_similar_b:
-                        unique_b.append(most_similar_b)
+                        unique_b.append(most_similar_b.strip())
                     else:
                         unique_b.append("[No matching text in Document B]")
 
             # Append only if there are unique sections
             if unique_a or unique_b:
                 comparisons.append({
-                    "Document A": f"Document {i+1}",
-                    "Document B": f"Document {j+1}",
+                    "Document A": f"Document {i + 1}",
+                    "Document B": f"Document {j + 1}",
                     "Unique in Document A": " | ".join(unique_a),
                     "Unique in Document B": " | ".join(unique_b)
                 })
@@ -265,7 +269,7 @@ with st.sidebar:
 def display_comparisons(comparisons):
     # Prepare data for tabular format
     data = {
-        "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
+        "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
         "Document B": [comp['Document B'] for comp in comparisons],
         "Unique in Document A": [comp["Unique in Document A"] for comp in comparisons],
