@@ -83,13 +83,17 @@ if uploaded_files:
 
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
-def compare_documents(context):
+def compare_documents(documents):
     comparisons = []
-    for i, doc_a in enumerate(context):
-        for j, doc_b in enumerate(context[i + 1:], start=i + 1):
+    for i, doc_a in enumerate(documents):
+        for j, doc_b in enumerate(documents[i + 1:], start=i + 1):
+            # Extract text content from Document objects
+            text_a = doc_a.page_content  # Adjust this based on your Document structure
+            text_b = doc_b.page_content
+
             # Split document content into sentences
-            sentences_a = doc_a.split('. ')
-            sentences_b = doc_b.split('. ')
+            sentences_a = text_a.split('. ')
+            sentences_b = text_b.split('. ')
 
             # Compare each sentence between Document A and Document B
             for sentence_a in sentences_a:
@@ -105,8 +109,8 @@ def compare_documents(context):
                 # If sentences are not similar enough, mark them as differences
                 if highest_similarity < 0.8:  # Adjust threshold as needed
                     comparisons.append({
-                        "Document A": f"Document {i+1}",
-                        "Document B": f"Document {j+1}",
+                        "Document A": f"Document {i + 1}",
+                        "Document B": f"Document {j + 1}",
                         "Text in Document A": sentence_a,
                         "Text in Document B": most_similar_b if most_similar_b else "[No similar text in Document B]"
                     })
@@ -253,7 +257,7 @@ with st.sidebar:
 def display_comparisons(comparisons):
     # Prepare data for tabular format
     data = {
-        "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
+        "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
         "Document B": [comp['Document B'] for comp in comparisons],
         "Text in Document A": [comp["Text in Document A"] for comp in comparisons],
@@ -290,6 +294,7 @@ if "vectors" in st.session_state:
         st.write("Response time:", time.process_time() - start)
 
         if response.get("context"):
+            # Assuming response["context"] is a list of Document objects
             comparisons = compare_documents(response["context"])
 
             # Filter only distinct document pairs
