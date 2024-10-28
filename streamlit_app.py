@@ -95,25 +95,33 @@ def compare_documents(documents):
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
 
-            # Compare each sentence between Document A and Document B
-            for sentence_a in sentences_a:
-                # Find the most similar sentence in Document B
-                highest_similarity = 0
-                most_similar_b = None
-                for sentence_b in sentences_b:
-                    similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
-                    if similarity > highest_similarity:
-                        highest_similarity = similarity
-                        most_similar_b = sentence_b
+            # Create sets to store unique sentences
+            unique_a = set(sentences_a)
+            unique_b = set(sentences_b)
 
-                # If sentences are not similar enough, mark them as differences
-                if highest_similarity < 0.8:  # Adjust threshold as needed
-                    comparisons.append({
-                        "Document A": f"Document {i + 1}",
-                        "Document B": f"Document {j + 1}",
-                        "Text in Document A": sentence_a,
-                        "Text in Document B": most_similar_b if most_similar_b else "[No similar text in Document B]"
-                    })
+            # Find unique sentences in Document A
+            only_in_a = unique_a - unique_b
+
+            # Find unique sentences in Document B
+            only_in_b = unique_b - unique_a
+
+            # Prepare the comparison data
+            for sentence in only_in_a:
+                comparisons.append({
+                    "Document A": f"Document {i + 1}",
+                    "Document B": f"Document {j + 1}",
+                    "Text in Document A": sentence,
+                    "Text in Document B": "[No unique text in Document B]"
+                })
+
+            for sentence in only_in_b:
+                comparisons.append({
+                    "Document A": f"Document {i + 1}",
+                    "Document B": f"Document {j + 1}",
+                    "Text in Document A": "[No unique text in Document A]",
+                    "Text in Document B": sentence
+                })
+
     return comparisons
 
 def create_prompt(input_text):
