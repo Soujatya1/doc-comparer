@@ -295,23 +295,44 @@ def display_comparisons(comparisons):
     )
 
 # Main Streamlit app code
-if "vectors" in st.session_state:
-    document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
-    retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
-    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+st.title("Document Comparison Tool")
 
-    if st.button("Compare Documents"):
-        start = time.process_time()
-        response = retrieval_chain.invoke({'input': "document comparison"})
-        st.write("Response time:", time.process_time() - start)
+# Upload documents
+uploaded_files = st.file_uploader("Upload Document A and Document B", type=["pdf", "docx"], accept_multiple_files=True)
 
-        if response.get("context"):
-            comparisons = compare_documents(response["context"])
+if uploaded_files:
+    if len(uploaded_files) != 2:
+        st.warning("Please upload exactly two documents for comparison.")
+    else:
+        # Text input for naming documents
+        doc_name_a = st.text_input("Name for Document A", value="Document A")
+        doc_name_b = st.text_input("Name for Document B", value="Document B")
 
-            # Filter only distinct document pairs
-            distinct_comparisons = [
-                comp for comp in comparisons if comp["Document A"] != comp["Document B"]
-            ]
+        # Store the documents in session state for further processing
+        if "vectors" not in st.session_state:
+            st.session_state.vectors = uploaded_files  # Store uploaded files in session state
 
-            # Display the distinct comparisons
-            display_comparisons(distinct_comparisons)
+        if st.button("Compare Documents"):
+            document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
+            retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
+            retrieval_chain = create_retrieval_chain(retriever, document_chain)
+
+            start = time.process_time()
+            response = retrieval_chain.invoke({'input': "document comparison"})
+            st.write("Response time:", time.process_time() - start)
+
+            if response.get("context"):
+                comparisons = compare_documents(response["context"])
+
+                # Filter only distinct document pairs
+                distinct_comparisons = [
+                    comp for comp in comparisons if comp["Document A"] != comp["Document B"]
+                ]
+
+                # Update document names in comparisons
+                for comp in distinct_comparisons:
+                    comp["Document A"] = doc_name_a
+                    comp["Document B"] = doc_name_b
+
+                # Display the distinct comparisons
+                display_comparisons(distinct_comparisons)
