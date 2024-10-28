@@ -10,3 +10,4 @@ chromadb
 langdetect
 pandas
 xlsxwriter
+numpy
