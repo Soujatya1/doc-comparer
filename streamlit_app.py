@@ -14,6 +14,8 @@ from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
 import pandas as pd
 import io
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
@@ -80,17 +82,41 @@ llm = ChatGroq(groq_api_key="gsk_wHkioomaAXQVpnKqdw4XWGdyb3FYfcpr67W7cAMCQRrNT2q
 
 def compare_documents(docs):
     comparisons = []
+    
     for i, doc_a in enumerate(docs):
         for doc_b in docs[i+1:]:
-            # Placeholder for custom comparison logic (e.g., content similarity, keyword matching)
-            common_themes = set(doc_a.page_content.split()) & set(doc_b.page_content.split())
-            differences = set(doc_a.page_content.split()) - set(doc_b.page_content.split())
+            # Convert document content into sentences
+            sentences_a = doc_a.page_content.split(". ")
+            sentences_b = doc_b.page_content.split(". ")
+            
+            # Generate embeddings for sentences
+            embeddings_a = st.session_state.embeddings.embed_text(sentences_a)
+            embeddings_b = st.session_state.embeddings.embed_text(sentences_b)
+
+            # Compute cosine similarity between each sentence pair
+            similarities = cosine_similarity(embeddings_a, embeddings_b)
+            
+            # Set a threshold for similarity (e.g., 0.8) to define common themes
+            common_themes = []
+            for idx_a, row in enumerate(similarities):
+                for idx_b, score in enumerate(row):
+                    if score > 0.8:  # Adjust threshold as needed
+                        common_themes.append((sentences_a[idx_a], sentences_b[idx_b]))
+
+            # Define differences based on sentences with low similarity
+            unique_a = [sent for j, sent in enumerate(sentences_a) 
+                        if not any(similarities[j, :] > 0.5)]
+            unique_b = [sent for j, sent in enumerate(sentences_b) 
+                        if not any(similarities[:, j] > 0.5)]
+
             comparisons.append({
                 "Document A": doc_a.metadata.get("source", "Unknown"),
                 "Document B": doc_b.metadata.get("source", "Unknown"),
-                "Common Themes": " ".join(common_themes),
-                "Differences": " ".join(differences)
+                "Common Themes": " | ".join([f"{a} / {b}" for a, b in common_themes]),
+                "Differences A": " | ".join(unique_a),
+                "Differences B": " | ".join(unique_b)
             })
+
     return comparisons
 
 def create_prompt(input_text):
