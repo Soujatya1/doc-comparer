@@ -16,6 +16,7 @@ import pandas as pd
 import io
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+from difflib import SequenceMatcher
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
@@ -84,22 +85,32 @@ def compare_documents(docs):
     comparisons = []
     for i, doc_a in enumerate(docs):
         for j, doc_b in enumerate(docs[i + 1:], start=i + 1):
-            # Split the content into words for each document
-            words_a = set(doc_a.page_content.split())
-            words_b = set(doc_b.page_content.split())
+            # Split document content into sentences
+            sentences_a = doc_a.page_content.split('. ')
+            sentences_b = doc_b.page_content.split('. ')
 
-            # Find unique words in each document
-            unique_to_a = words_a - words_b
-            unique_to_b = words_b - words_a
+            # Compare each sentence between Document A and Document B
+            for sentence_a in sentences_a:
+                # Find the most similar sentence in Document B
+                highest_similarity = 0
+                most_similar_b = None
+                for sentence_b in sentences_b:
+                    similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
+                    if similarity > highest_similarity:
+                        highest_similarity = similarity
+                        most_similar_b = sentence_b
 
-            # Store the differences for each document comparison
-            comparisons.append({
-                "Document A": doc_a.metadata.get("source", f"Document {i+1}"),
-                "Document B": doc_b.metadata.get("source", f"Document {j+1}"),
-                "Unique in Document A": " ".join(unique_to_a),
-                "Unique in Document B": " ".join(unique_to_b)
-            })
+                # If sentences are not similar enough, mark them as differences
+                if highest_similarity < 0.8:  # Adjust threshold as needed
+                    comparisons.append({
+                        "Document A": doc_a.metadata.get("source", f"Document {i+1}"),
+                        "Document B": doc_b.metadata.get("source", f"Document {j+1}"),
+                        "Text in Document A": sentence_a,
+                        "Text in Document B": most_similar_b if most_similar_b else "[No similar text in Document B]"
+                    })
     return comparisons
+
+
 
 def create_prompt(input_text):
     previous_interactions = "\n".join(
@@ -239,6 +250,35 @@ with st.sidebar:
     st.header("Language Selection")
     selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
+def display_comparisons(comparisons):
+    # Prepare data for tabular format
+    data = {
+        "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
+        "Document A": [comp['Document A'] for comp in comparisons],
+        "Document B": [comp['Document B'] for comp in comparisons],
+        "Text in Document A": [comp["Text in Document A"] for comp in comparisons],
+        "Text in Document B": [comp["Text in Document B"] for comp in comparisons]
+    }
+
+    # Create DataFrame and display table
+    comparison_df = pd.DataFrame(data)
+    st.table(comparison_df)
+
+    # Convert the DataFrame to an Excel file
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
+    excel_buffer.seek(0)
+
+    # Download button for the Excel file
+    st.download_button(
+        label="Download Comparison Results as Excel",
+        data=excel_buffer,
+        file_name='comparison_results.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+# Main Streamlit app code
 if "vectors" in st.session_state:
     document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
@@ -256,29 +296,6 @@ if "vectors" in st.session_state:
             distinct_comparisons = [
                 comp for comp in comparisons if comp["Document A"] != comp["Document B"]
             ]
-            
-            # Prepare data for tabular format
-            data = {
-                "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
-                "Document A": [comp['Document A'] for comp in comparisons],
-                "Document B": [comp['Document B'] for comp in comparisons],
-                "Unique in Document A": [comp["Unique in Document A"] for comp in comparisons],
-                "Unique in Document B": [comp["Unique in Document B"] for comp in comparisons]
-            }
 
-            comparison_df = pd.DataFrame(data)
-            st.table(comparison_df)
-
-            # Convert the DataFrame to an Excel file
-            excel_buffer = io.BytesIO()
-            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-                comparison_df.to_excel(writer, index=False, sheet_name='Comparison Results')
-            excel_buffer.seek(0)
-
-            # Download button for the Excel file
-            st.download_button(
-                label="Download Comparison Results as Excel",
-                data=excel_buffer,
-                file_name='comparison_results.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+            # Display the distinct comparisons
+            display_comparisons(distinct_comparisons)
