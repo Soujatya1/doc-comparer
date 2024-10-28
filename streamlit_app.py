@@ -82,41 +82,23 @@ llm = ChatGroq(groq_api_key="gsk_wHkioomaAXQVpnKqdw4XWGdyb3FYfcpr67W7cAMCQRrNT2q
 
 def compare_documents(docs):
     comparisons = []
-    
     for i, doc_a in enumerate(docs):
-        for doc_b in docs[i+1:]:
-            # Convert document content into sentences
-            sentences_a = doc_a.page_content.split(". ")
-            sentences_b = doc_b.page_content.split(". ")
-            
-            # Generate embeddings for sentences using embed_documents
-            embeddings_a = st.session_state.embeddings.embed_documents(sentences_a)
-            embeddings_b = st.session_state.embeddings.embed_documents(sentences_b)
+        for j, doc_b in enumerate(docs[i + 1:], start=i + 1):
+            # Split the content into words for each document
+            words_a = set(doc_a.page_content.split())
+            words_b = set(doc_b.page_content.split())
 
-            # Compute cosine similarity between each sentence pair
-            similarities = cosine_similarity(embeddings_a, embeddings_b)
-            
-            # Set a threshold for similarity (e.g., 0.8) to define common themes
-            common_themes = []
-            for idx_a, row in enumerate(similarities):
-                for idx_b, score in enumerate(row):
-                    if score > 0.8:  # Adjust threshold as needed
-                        common_themes.append((sentences_a[idx_a], sentences_b[idx_b]))
+            # Find unique words in each document
+            unique_to_a = words_a - words_b
+            unique_to_b = words_b - words_a
 
-            # Define differences based on sentences with low similarity
-            unique_a = [sent for j, sent in enumerate(sentences_a) 
-                        if not any(similarities[j, :] > 0.5)]
-            unique_b = [sent for j, sent in enumerate(sentences_b) 
-                        if not any(similarities[:, j] > 0.5)]
-
+            # Store the differences for each document comparison
             comparisons.append({
-                "Document A": doc_a.metadata.get("source", "Unknown"),
-                "Document B": doc_b.metadata.get("source", "Unknown"),
-                "Common Themes": " | ".join([f"{a} / {b}" for a, b in common_themes]),
-                "Differences A": " | ".join(unique_a),
-                "Differences B": " | ".join(unique_b)
+                "Document A": doc_a.metadata.get("source", f"Document {i+1}"),
+                "Document B": doc_b.metadata.get("source", f"Document {j+1}"),
+                "Unique in Document A": " ".join(unique_to_a),
+                "Unique in Document B": " ".join(unique_to_b)
             })
-
     return comparisons
 
 def create_prompt(input_text):
@@ -278,13 +260,12 @@ if "vectors" in st.session_state:
             # Prepare data for tabular format
             data = {
                 "Comparison ID": [f"{i+1}" for i in range(len(comparisons))],
-                "Document A": [f"Document A: {comp['Document A']}" for comp in comparisons],
-                "Document B": [f"Document B: {comp['Document B']}" for comp in comparisons],
-                "Differences in Document A": [comp["Differences A"] for comp in comparisons],
-                "Differences in Document B": [comp["Differences B"] for comp in comparisons]
+                "Document A": [comp['Document A'] for comp in comparisons],
+                "Document B": [comp['Document B'] for comp in comparisons],
+                "Unique in Document A": [comp["Unique in Document A"] for comp in comparisons],
+                "Unique in Document B": [comp["Unique in Document B"] for comp in comparisons]
             }
-            
-            # Create DataFrame and display table
+
             comparison_df = pd.DataFrame(data)
             st.table(comparison_df)
 
