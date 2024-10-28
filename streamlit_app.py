@@ -67,6 +67,14 @@ comparison_prompt = PromptTemplate(
              "If no differences, state 'No significant difference'.\n\n"
              "Document A:\n{doc_a_content}\n\nDocument B:\n{doc_b_content}\n\nDifferences:"
 )
+def read_file_with_fallback(uploaded_file):
+    try:
+        # Try reading with UTF-8 encoding first
+        content = uploaded_file.read().decode("utf-8")
+    except UnicodeDecodeError:
+        # Fallback to ISO-8859-1 encoding
+        content = uploaded_file.read().decode("ISO-8859-1")
+    return content
 
 def extract_topics(llm_chain, document_text):
     response = llm_chain.run({"document": document_text})
@@ -122,8 +130,8 @@ uploaded_file_b = st.file_uploader("Upload Document B", type=["txt", "pdf"])
 
 if uploaded_file_a and uploaded_file_b:
     # Load document content
-    doc_a = uploaded_file_a.read().decode("utf-8")
-    doc_b = uploaded_file_b.read().decode("utf-8")
+    doc_a = read_file_with_fallback(uploaded_file_a)
+    doc_b = read_file_with_fallback(uploaded_file_b)
     
     # Initialize LLM chains
     topic_llm_chain = LLMChain(prompt=topic_extraction_prompt, llm=llm)
