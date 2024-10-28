@@ -85,6 +85,7 @@ llm = ChatGroq(groq_api_key="gsk_wHkioomaAXQVpnKqdw4XWGdyb3FYfcpr67W7cAMCQRrNT2q
 
 def compare_documents(documents):
     comparisons = []
+    
     for i, doc_a in enumerate(documents):
         for j, doc_b in enumerate(documents[i + 1:], start=i + 1):
             # Extract text content from Document objects
@@ -95,32 +96,27 @@ def compare_documents(documents):
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
 
-            # Create sets to store unique sentences
-            unique_a = set(sentences_a)
-            unique_b = set(sentences_b)
+            # Compare sentences between Document A and Document B
+            for sentence_a in sentences_a:
+                # Default to indicate no similar sentence in Document B
+                most_similar_b = "[No similar text in Document B]"
+                highest_similarity = 0
 
-            # Find unique sentences in Document A
-            only_in_a = unique_a - unique_b
+                for sentence_b in sentences_b:
+                    # Calculate similarity ratio
+                    similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
+                    if similarity > highest_similarity:
+                        highest_similarity = similarity
+                        most_similar_b = sentence_b
 
-            # Find unique sentences in Document B
-            only_in_b = unique_b - unique_a
-
-            # Prepare the comparison data
-            for sentence in only_in_a:
-                comparisons.append({
-                    "Document A": f"Document {i + 1}",
-                    "Document B": f"Document {j + 1}",
-                    "Text in Document A": sentence,
-                    "Text in Document B": "[No unique text in Document B]"
-                })
-
-            for sentence in only_in_b:
-                comparisons.append({
-                    "Document A": f"Document {i + 1}",
-                    "Document B": f"Document {j + 1}",
-                    "Text in Document A": "[No unique text in Document A]",
-                    "Text in Document B": sentence
-                })
+                # If similarity is low, consider them different
+                if highest_similarity < 0.8:  # You can adjust the threshold
+                    comparisons.append({
+                        "Document A": f"Document {i + 1}",
+                        "Document B": f"Document {j + 1}",
+                        "Text in Document A": sentence_a,
+                        "Text in Document B": most_similar_b
+                    })
 
     return comparisons
 
