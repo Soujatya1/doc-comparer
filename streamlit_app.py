@@ -23,33 +23,6 @@ from docx import Document
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
 
-DetectorFactory.seed = 0
-
-def detect_language(text):
-    try:
-        return detect(text)
-    except LangDetectException:
-        return None
-
-st.markdown("""
-    <style>
-    .input-box {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: white;
-        padding: 10px;
-        box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
-        z-index: 999;
-    }
-    .conversation-history {
-        max-height: 75vh;
-        overflow-y: auto;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 if not os.path.exists("uploaded_files"):
     os.makedirs("uploaded_files")
 
@@ -135,128 +108,6 @@ def create_prompt(input_text):
         Questions: {input_text}
         """
     )
-
-def translate_text(text, source_language, target_language):
-    api_url = "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline/"
-    user_id = "bdeee189dc694351b6b248754a918885"
-    ulca_api_key = "099c9c6409-1308-4503-8d33-64cc5e49a07f"
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {ulca_api_key}",
-        "userID": user_id,
-        "ulcaApiKey": ulca_api_key
-    }
-
-    payload = {
-        "pipelineTasks": [
-            {
-                "taskType": "translation",
-                "config": {
-                    "language": {
-                        "sourceLanguage": source_language,
-                        "targetLanguage": target_language
-                    }
-                }
-            }
-        ],
-        "pipelineRequestConfig": {
-            "pipelineId": "64392f96daac500b55c543cd"
-        }
-    }
-
-    try:
-        response = requests.post(api_url, json=payload, headers=headers)
-        if response.status_code == 200:
-            response_data = response.json()
-            service_id = response_data["pipelineResponseConfig"][0]["config"][0]["serviceId"]
-        else:
-            return text
-
-    except Exception as e:
-        return text
-
-    compute_payload = {
-        "pipelineTasks": [
-            {
-                "taskType": "translation",
-                "config": {
-                    "language": {
-                        "sourceLanguage": source_language,
-                        "targetLanguage": target_language
-                    },
-                    "serviceId": service_id
-                }
-            }
-        ],
-        "inputData": {
-            "input": [
-                {
-                    "source": text
-                }
-            ]
-        }
-    }
-
-    callback_url = response_data["pipelineInferenceAPIEndPoint"]["callbackUrl"]
-    headers2 = {
-        "Content-Type": "application/json",
-        response_data["pipelineInferenceAPIEndPoint"]["inferenceApiKey"]["name"]:
-            response_data["pipelineInferenceAPIEndPoint"]["inferenceApiKey"]["value"]
-    }
-
-    try:
-        compute_response = requests.post(callback_url, json=compute_payload, headers=headers2)
-        if compute_response.status_code == 200:
-            compute_response_data = compute_response.json()
-            translated_content = compute_response_data["pipelineResponse"][0]["output"][0]["target"]
-            return translated_content
-        else:
-            return ""
-
-    except Exception as e:
-        return ""
-
-language_mapping = {
-    "Auto-detect": "",
-    "English": "en",
-    "Kashmiri": "ks",
-    "Nepali": "ne",
-    "Bengali": "bn",
-    "Marathi": "mr",
-    "Sindhi": "sd",
-    "Telugu": "te",
-    "Gujarati": "gu",
-    "Gom": "gom",
-    "Urdu": "ur",
-    "Santali": "sat",
-    "Kannada": "kn",
-    "Malayalam": "ml",
-    "Manipuri": "mni",
-    "Tamil": "ta",
-    "Hindi": "hi",
-    "Punjabi": "pa",
-    "Odia": "or",
-    "Dogri": "doi",
-    "Assamese": "as",
-    "Sanskrit": "sa",
-    "Bodo": "brx",
-    "Maithili": "mai"
-}
-
-language_options = list(language_mapping.keys())
-
-st.header("Conversation History")
-for interaction in st.session_state.history:
-    st.write(f"**You:** {interaction['question']}")
-    st.write(f"**Bot:** {interaction['answer']}")
-    st.write("---")
-
-st.write("---")
-
-with st.sidebar:
-    st.header("Language Selection")
-    selected_language = st.selectbox("Select language for translation:", language_options, key="language_selection")
     
 def display_comparisons(comparisons):
     # Prepare data for tabular format
@@ -280,7 +131,7 @@ def display_comparisons(comparisons):
 
     # Download button for the Excel file
     st.download_button(
-        label="Download Comparison Results as Excel",
+        label="Download Comparison Results",
         data=excel_buffer,
         file_name='comparison_results.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
