@@ -11,3 +11,4 @@ langdetect
 pandas
 xlsxwriter
 numpy
+python-docx
