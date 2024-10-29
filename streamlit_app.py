@@ -20,7 +20,6 @@ def initialize_vectorstore(documents):
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
 
 # Initialize document loader, embeddings, and FAISS vector store
-@st.cache_resource  # Use cache to avoid re-initializing on every interaction
 documents = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
