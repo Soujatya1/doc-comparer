@@ -5,7 +5,6 @@ from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
-from langchain.chains.question_answering import load_qa_chain
 import difflib
 
 # Initialize the Streamlit app
@@ -25,10 +24,15 @@ def cleanup_temp_files(uploaded_files):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-# Function to highlight differences
-def highlight_differences(text1, text2):
-    diff = difflib.ndiff(text1.splitlines(), text2.splitlines())
-    return '\n'.join(diff)
+# Function to compare text blocks between two documents
+def compare_text_blocks(text1, text2):
+    blocks1 = set(text1.split('\n'))  # Split text into blocks
+    blocks2 = set(text2.split('\n'))  # Split text into blocks
+
+    unique_to_doc1 = blocks1 - blocks2  # Blocks in Doc A not in Doc B
+    unique_to_doc2 = blocks2 - blocks1  # Blocks in Doc B not in Doc A
+
+    return unique_to_doc1, unique_to_doc2
 
 # Upload and load documents
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
@@ -72,9 +76,22 @@ if uploaded_files:
 
             # Highlight differences between the first two documents if they exist
             if len(texts) >= 2:
-                differences = highlight_differences(texts[0], texts[1])
-                st.subheader("Differences:")
-                st.code(differences, language='text')  # Display differences in a code block
+                unique_to_doc1, unique_to_doc2 = compare_text_blocks(texts[0], texts[1])
+                st.subheader("Unique Text Blocks:")
+                
+                if unique_to_doc1:
+                    st.markdown("**Unique to Document A:**")
+                    for block in unique_to_doc1:
+                        st.write(f"- {block}")
+                else:
+                    st.write("No unique blocks in Document A.")
+                
+                if unique_to_doc2:
+                    st.markdown("**Unique to Document B:**")
+                    for block in unique_to_doc2:
+                        st.write(f"- {block}")
+                else:
+                    st.write("No unique blocks in Document B.")
 
     # Cleanup temporary files
     cleanup_temp_files(uploaded_files)
