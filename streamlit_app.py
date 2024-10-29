@@ -7,6 +7,7 @@ from langchain_groq import ChatGroq
 import os
 from langchain.chains.question_answering import load_qa_chain
 from docx import Document as DocxDocument
+from langchain.schema import Document
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
