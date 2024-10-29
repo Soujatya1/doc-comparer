@@ -8,7 +8,7 @@ import os
 from difflib import ndiff
 from langchain.chains.question_answering import load_qa_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import fitz
+from pypdf import PdfReader
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -23,10 +23,10 @@ uploaded_file1 = st.file_uploader("Upload Document 1", type=["txt", "pdf", "docx
 uploaded_file2 = st.file_uploader("Upload Document 2", type=["txt", "pdf", "docx"])
 
 def read_pdf(file):
-    doc = fitz.open(stream=file.read(), filetype="pdf")
+    reader = PdfReader(file)
     text = ""
-    for page in doc:
-        text += page.get_text()
+    for page in reader.pages:
+        text += page.extract_text()
     return text
 
 if uploaded_file1 and uploaded_file2:
