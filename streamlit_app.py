@@ -9,23 +9,15 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 import os
 import time
-import requests
-from langdetect import detect, DetectorFactory
-from langdetect.lang_detect_exception import LangDetectException
 import pandas as pd
 import io
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 from difflib import SequenceMatcher
-from langchain.document_loaders import PyPDFLoader
-from docx import Document
 
 st.title("Document Comparer")
 st.subheader("Compare your Documents")
 
 if not os.path.exists("uploaded_files"):
     os.makedirs("uploaded_files")
-
 
 if 'history' not in st.session_state:
     st.session_state.history = []
@@ -35,6 +27,7 @@ if 'last_context' not in st.session_state:
 
 uploaded_files = st.file_uploader("Upload a file", type=["pdf"], accept_multiple_files=True)
 
+# Load and process documents on initial upload
 if uploaded_files:
     for uploaded_file in uploaded_files:
         # Save each file temporarily in the created directory
@@ -45,6 +38,7 @@ if uploaded_files:
         st.success(f"File '{uploaded_file.name}' uploaded successfully!")
 
     if "vectors" not in st.session_state:
+        # Load documents once
         st.session_state.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         st.session_state.loader = PyPDFDirectoryLoader("uploaded_files")
         st.session_state.docs = st.session_state.loader.load()
@@ -54,7 +48,7 @@ if uploaded_files:
         st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
         st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
 
-llm = ChatGroq(groq_api_key="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", model_name="Llama3-70b-8192")
+llm = ChatGroq(groq_api_key="your_groq_api_key", model_name="Llama3-70b-8192")
 
 def compare_documents(documents):
     comparisons = []
@@ -62,28 +56,25 @@ def compare_documents(documents):
     for i, doc_a in enumerate(documents):
         for j, doc_b in enumerate(documents[i + 1:], start=i + 1):
             # Extract text content from Document objects
-            text_a = doc_a.page_content  # Adjust this based on your Document structure
+            text_a = doc_a.page_content
             text_b = doc_b.page_content
 
             # Split document content into sentences
             sentences_a = text_a.split('. ')
             sentences_b = text_b.split('. ')
 
-            # Compare sentences between Document A and Document B
             for sentence_a in sentences_a:
-                # Initialize variables to capture the most similar sentence and its similarity score
                 most_similar_b = "[No similar text in Document B]"
                 highest_similarity = 0
 
                 for sentence_b in sentences_b:
-                    # Calculate similarity ratio
                     similarity = SequenceMatcher(None, sentence_a, sentence_b).ratio()
                     if similarity > highest_similarity:
                         highest_similarity = similarity
                         most_similar_b = sentence_b
 
-                # If similarity is low, record it as a significant difference
-                if highest_similarity < 0.8:  # Adjust this threshold as needed
+                # Record as a difference if below threshold (e.g., 0.8)
+                if highest_similarity < 0.8:
                     comparisons.append({
                         "Document A": f"Document {i + 1}",
                         "Document B": f"Document {j + 1}",
@@ -94,24 +85,8 @@ def compare_documents(documents):
 
     return comparisons
 
-def create_prompt(input_text):
-    previous_interactions = "\n".join(
-        [f"You: {h['question']}\nBot: {h['answer']}" for h in st.session_state.history[-5:]]
-    )
-    return ChatPromptTemplate.from_template(
-        f"""
-        Compare the uploaded documents based on their differences and form a good context on the same.
-        Previous Context: {st.session_state.last_context}
-        Previous Interactions:\n{previous_interactions}
-        <context>
-        {{context}}
-        <context>
-        Questions: {input_text}
-        """
-    )
-    
 def display_comparisons(comparisons):
-    # Prepare data for tabular format, including similarity score for context
+    # Prepare data for tabular format
     data = {
         "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
@@ -139,7 +114,6 @@ def display_comparisons(comparisons):
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
-# Main Streamlit app code
 if "vectors" in st.session_state:
     document_chain = create_stuff_documents_chain(llm, create_prompt("document comparison"))
     retriever = st.session_state.vectors.as_retriever(search_type="similarity", k=2)
@@ -154,10 +128,5 @@ if "vectors" in st.session_state:
             # Assuming response["context"] is a list of Document objects
             comparisons = compare_documents(response["context"])
 
-            # Filter only distinct document pairs
-            distinct_comparisons = [
-                comp for comp in comparisons if comp["Document A"] != comp["Document B"]
-            ]
-
-            # Display the distinct comparisons
-            display_comparisons(distinct_comparisons)
+            # Display the comparisons in the table
+            display_comparisons(comparisons)
