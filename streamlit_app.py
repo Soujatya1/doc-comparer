@@ -6,6 +6,7 @@ from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
 import difflib
+from langchain.chains.question_answering import load_qa_chain
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
