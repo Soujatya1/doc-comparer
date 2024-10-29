@@ -7,7 +7,15 @@ from langchain_groq import ChatGroq
 import os
 
 # Initialize the Streamlit app
-st.title("Document Comparer with ChatGroq LLM")
+st.title("Document Comparer!")
+
+@st.cache_resource  # Use cache to avoid re-initializing on every interaction
+def initialize_vectorstore(documents):
+    # Initialize embeddings model
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    # Create FAISS vector store from documents
+    vectorstore = FAISS.from_documents(documents, embeddings)
+    return vectorstore
 
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
 
