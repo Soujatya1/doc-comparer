@@ -19,7 +19,6 @@ def initialize_vectorstore(documents):
 
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
 
-# Initialize document loader, embeddings, and FAISS vector store
 documents = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
@@ -28,41 +27,29 @@ if uploaded_files:
         loader = PyPDFLoader(f"temp_{uploaded_file.name}")
         documents.extend(loader.load())
 
-    # Initialize FAISS vectorstore once all documents are loaded
+    # Initialize FAISS vector store with all documents
     vectorstore = initialize_vectorstore(documents)
     st.success("Documents uploaded and embedded successfully!")
 
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        with open(f"temp_{uploaded_file.name}", "wb") as f:
-            f.write(uploaded_file.read())
-        loader = PyPDFLoader(f"temp_{uploaded_file.name}")
-        documents = loader.load()
+    # Set up RetrievalQA chain with LangChain
+    retriever = vectorstore.as_retriever()
+    qa_chain = RetrievalQA(llm=llm, retriever=retriever)
 
-        # Embed and store documents in FAISS
-        vectorstore.add_documents(documents)
+    # Define comparison function
+    def compare_documents(query):
+        response = qa_chain({"query": query})
+        return response["result"]
 
-    st.success("Documents uploaded and embedded successfully!")
+    # Interface to compare documents
+    st.subheader("Compare Documents")
+    query = st.text_input("Enter your comparison query:")
 
-llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
-
-# Set up RetrievalQA chain with LangChain
-retriever = vectorstore.as_retriever()
-qa_chain = RetrievalQA(llm=llm, retriever=retriever)
-
-# Define comparison function
-def compare_documents(query):
-    response = qa_chain({"query": query})
-    return response["result"]
-
-# Interface to compare documents
-st.subheader("Compare Documents")
-query = st.text_input("Enter your comparison query:")
-
-if st.button("Compare"):
-    if not query:
-        st.warning("Please enter a query to compare.")
-    else:
-        result = compare_documents(query)
-        st.write("Comparison Result:")
-        st.write(result)
+    if st.button("Compare"):
+        if not query:
+            st.warning("Please enter a query to compare.")
+        else:
+            result = compare_documents(query)
+            st.write("Comparison Result:")
+            st.write(result)
+else:
+    st.warning("Please upload documents to enable comparison.")
