@@ -8,6 +8,7 @@ import os
 from difflib import ndiff
 from langchain.chains.question_answering import load_qa_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import fitz
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -21,9 +22,16 @@ st.title("Contract Document Comparer")
 uploaded_file1 = st.file_uploader("Upload Document 1", type=["txt", "pdf", "docx"])
 uploaded_file2 = st.file_uploader("Upload Document 2", type=["txt", "pdf", "docx"])
 
+def read_pdf(file):
+    doc = fitz.open(stream=file.read(), filetype="pdf")
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
+
 if uploaded_file1 and uploaded_file2:
-    doc1 = uploaded_file1.read().decode("utf-8")
-    doc2 = uploaded_file2.read().decode("utf-8")
+    doc1 = read_pdf(uploaded_file1)
+    doc2 = read_pdf(uploaded_file2)
 
     chunks1 = text_splitter.split_text(doc1)
     chunks2 = text_splitter.split_text(doc2)
@@ -41,3 +49,10 @@ if uploaded_file1 and uploaded_file2:
 
     differences = find_differences(results1, results2)
     st.write(differences)
+
+def find_differences(results1, results2):
+    differences = []
+    for chunk1, chunk2 in zip(results1, results2):
+        if chunk1 != chunk2:
+            differences.append((chunk1, chunk2))
+    return differences
