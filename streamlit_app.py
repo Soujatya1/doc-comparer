@@ -48,7 +48,7 @@ if uploaded_files:
         st.session_state.final_documents = st.session_state.text_splitter.split_documents(st.session_state.docs)
         st.session_state.vectors = FAISS.from_documents(st.session_state.final_documents, st.session_state.embeddings)
 
-llm = ChatGroq(groq_api_key="your_groq_api_key", model_name="Llama3-70b-8192")
+llm = ChatGroq(groq_api_key="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", model_name="Llama3-70b-8192")
 
 def compare_documents(documents):
     comparisons = []
