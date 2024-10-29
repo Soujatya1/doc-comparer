@@ -6,6 +6,7 @@ from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
 from langchain.chains.question_answering import load_qa_chain
+from docx import Document
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -19,15 +20,29 @@ def initialize_vectorstore(documents):
     vectorstore = FAISS.from_documents(documents, embeddings)
     return vectorstore
 
+def load_docx(file_path):
+    doc = Document(file_path)
+    text = []
+    for paragraph in doc.paragraphs:
+        text.append(paragraph.text)
+    return "\n".join(text)
+
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["text", "docx", "pdf"])
 
 documents = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        with open(f"temp_{uploaded_file.name}", "wb") as f:
+        file_path = f"temp_{uploaded_file.name}"
+        with open(file_path, "wb") as f:
             f.write(uploaded_file.read())
-        loader = PyPDFLoader(f"temp_{uploaded_file.name}")
-        documents.extend(loader.load())
+
+        # Check file type and load documents accordingly
+        if uploaded_file.type == "application/pdf":
+            loader = PyPDFLoader(file_path)
+            documents.extend(loader.load())
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            doc_text = load_docx(file_path)
+            documents.append(doc_text)  # Append the loaded text as a document
 
     # Initialize FAISS vector store with all documents (no caching)
     vectorstore = initialize_vectorstore(documents)
@@ -57,5 +72,11 @@ if uploaded_files:
             result = compare_documents(query)
             st.write("Comparison Result:")
             st.write(result)
+else:
+    st.warning("Please upload documents to enable comparison.")
+
+# Clean up temporary files
+for uploaded_file in uploaded_files:
+    os.remove(f"temp_{uploaded_file.name}")
 else:
     st.warning("Please upload documents to enable comparison.")
