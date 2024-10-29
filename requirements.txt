@@ -12,5 +12,3 @@ pandas
 xlsxwriter
 numpy
 python-docx
-fitz
-frontend
