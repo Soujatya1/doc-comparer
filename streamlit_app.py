@@ -7,7 +7,7 @@ from langchain_groq import ChatGroq
 import os
 from difflib import ndiff
 from langchain.chains.question_answering import load_qa_chain
-fro langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
