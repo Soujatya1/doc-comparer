@@ -9,7 +9,6 @@ import os
 # Initialize the Streamlit app
 st.title("Document Comparer!")
 
-@st.cache_resource  # Use cache to avoid re-initializing on every interaction
 def initialize_vectorstore(documents):
     # Initialize embeddings model
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
