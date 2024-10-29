@@ -34,12 +34,7 @@ if uploaded_files:
 
     st.success("Documents uploaded and embedded successfully!")
 
-# Initialize ChatGroq LLM
-@st.cache_resource
-def initialize_chatgroq():
-    return ChatGroq(model="llama3-70b-8192")
-
-llm = initialize_chatgroq()
+llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
 # Set up RetrievalQA chain with LangChain
 retriever = vectorstore.as_retriever()
