@@ -12,22 +12,19 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Initialize the Streamlit app
 st.title("Document Comparer!")
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size = 450, chunk_overlap = 100)
-chunks = text_splitter.split_text(text_splitter)
-
-vector_db = FAISS.from_texts(chunks)
-
-retrieval_chain = RetrievalQA(llm = llm, retriever = vector_db.as_retriever())
-
-import streamlit as st
 
 st.title("Contract Document Comparer")
 
-doc1 = st.text_area("Document 1")
-doc2 = st.text_area("Document 2")
+uploaded_file1 = st.file_uploader("Upload Document 1", type=["txt", "pdf", "docx"])
+uploaded_file2 = st.file_uploader("Upload Document 2", type=["txt", "pdf", "docx"])
 
-if st.button("Compare"):
+if uploaded_file1 and uploaded_file2:
+    doc1 = uploaded_file1.read().decode("utf-8")
+    doc2 = uploaded_file2.read().decode("utf-8")
+
     chunks1 = text_splitter.split_text(doc1)
     chunks2 = text_splitter.split_text(doc2)
 
@@ -36,6 +33,8 @@ if st.button("Compare"):
 
     vector_db1 = FAISS.from_embeddings(embeddings1)
     vector_db2 = FAISS.from_embeddings(embeddings2)
+
+    retrieval_chain = RetrievalQA(llm=llm, retriever=vector_db1.as_retriever())
 
     results1 = retrieval_chain.run(vector_db1)
     results2 = retrieval_chain.run(vector_db2)
