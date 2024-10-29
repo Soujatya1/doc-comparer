@@ -14,6 +14,7 @@ st.title("Document Comparer!")
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
 
+# Function to initialize FAISS vector store without caching
 def initialize_vectorstore(documents):
     # Initialize embeddings model
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -21,32 +22,16 @@ def initialize_vectorstore(documents):
     vectorstore = FAISS.from_documents(documents, embeddings)
     return vectorstore
 
-def load_docx(file_path):
-    doc = DocxDocument(file_path)
-    text = []
-    for paragraph in doc.paragraphs:
-        text.append(paragraph.text)
-    return "\n".join(text)
-
-uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["text", "docx", "pdf"])
+# Upload and load documents
+uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
 
 documents = []
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        file_path = f"temp_{uploaded_file.name}"
-        with open(file_path, "wb") as f:
+        with open(f"temp_{uploaded_file.name}", "wb") as f:
             f.write(uploaded_file.read())
-
-        # Check file type and load documents accordingly
-        if uploaded_file.type == "application/pdf":
-            loader = PyPDFLoader(file_path)
-            pdf_documents = loader.load()
-            documents.extend(pdf_documents)  # Extend with PDF documents
-
-        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            doc_text = load_docx(file_path)
-            # Create a LangChain document object for the loaded text
-            documents.append(LangChainDocument(page_content=doc_text, metadata={"source": file_path}))
+        loader = PyPDFLoader(f"temp_{uploaded_file.name}")
+        documents.extend(loader.load())
 
     # Initialize FAISS vector store with all documents (no caching)
     vectorstore = initialize_vectorstore(documents)
@@ -78,7 +63,3 @@ if uploaded_files:
             st.write(result)
 else:
     st.warning("Please upload documents to enable comparison.")
-
-# Clean up temporary files
-for uploaded_file in uploaded_files:
-    os.remove(f"temp_{uploaded_file.name}")
