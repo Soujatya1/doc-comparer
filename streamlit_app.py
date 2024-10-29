@@ -36,8 +36,8 @@ if uploaded_file1 and uploaded_file2:
     chunks1 = text_splitter.split_text(doc1)
     chunks2 = text_splitter.split_text(doc2)
 
-    embeddings1 = embeddings.embed_texts(chunks1)
-    embeddings2 = embeddings.embed_texts(chunks2)
+    embeddings1 = [embeddings.embed(chunk) for chunk in chunks1]
+    embeddings2 = [embeddings.embed(chunk) for chunk in chunks2]
 
     vector_db1 = FAISS.from_embeddings(embeddings1)
     vector_db2 = FAISS.from_embeddings(embeddings2)
