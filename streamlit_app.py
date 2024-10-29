@@ -19,7 +19,7 @@ def initialize_vectorstore(documents):
     vectorstore = FAISS.from_documents(documents, embeddings)
     return vectorstore
 
-uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
+uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["text", "docx", "pdf"])
 
 documents = []
 if uploaded_files:
