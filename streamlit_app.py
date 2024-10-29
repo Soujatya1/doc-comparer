@@ -7,110 +7,38 @@ from langchain_groq import ChatGroq
 import os
 from difflib import ndiff
 from langchain.chains.question_answering import load_qa_chain
+fro langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
-# Function to initialize FAISS vector store without caching
-def initialize_vectorstore(documents):
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_documents(documents, embeddings)
-    return vectorstore
+text_splitter = RecursiveCharacterTextSplitter(chunk_size = 450, chunk_overlap = 100)
+chunks = text_splitter.split_text(text_splitter)
 
-# Function to clean up temporary files
-def cleanup_temp_files(uploaded_files):
-    for uploaded_file in uploaded_files:
-        temp_file_path = f"temp_{uploaded_file.name}"
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+vector_db = FAISS.from_texts(chunks)
 
-# Refined function to compare text blocks between two documents
-def compare_text_blocks(text1, text2):
-    # Split texts into paragraphs for more meaningful comparisons
-    blocks1 = set(text1.split('\n\n'))  # Split by double newline for paragraphs
-    blocks2 = set(text2.split('\n\n'))
+retrieval_chain = RetrievalQA(llm = llm, retriever = vector_db.as_retriever())
 
-    # Identify unique paragraphs
-    unique_to_doc1 = blocks1 - blocks2
-    unique_to_doc2 = blocks2 - blocks1
+import streamlit as st
 
-    # Identify small differences in common blocks
-    common_blocks = blocks1.intersection(blocks2)
-    differences = []
+st.title("Contract Document Comparer")
 
-    for block in common_blocks:
-        diff = list(ndiff(block.splitlines(), next((b for b in blocks2 if b == block), "").splitlines()))
-        if any(line.startswith('+') or line.startswith('-') for line in diff):
-            differences.append("\n".join(diff))
+doc1 = st.text_area("Document 1")
+doc2 = st.text_area("Document 2")
 
-    return unique_to_doc1, unique_to_doc2, differences
+if st.button("Compare"):
+    chunks1 = text_splitter.split_text(doc1)
+    chunks2 = text_splitter.split_text(doc2)
 
-# Upload and load documents
-uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
+    embeddings1 = embeddings.embed_texts(chunks1)
+    embeddings2 = embeddings.embed_texts(chunks2)
 
-documents = []
-texts = []
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        with open(f"temp_{uploaded_file.name}", "wb") as f:
-            f.write(uploaded_file.read())
-        loader = PyPDFLoader(f"temp_{uploaded_file.name}")
-        doc = loader.load()
-        documents.extend(doc)
-        texts.append(" ".join([d.page_content for d in doc]))  # Collect text from documents
+    vector_db1 = FAISS.from_embeddings(embeddings1)
+    vector_db2 = FAISS.from_embeddings(embeddings2)
 
-    # Initialize FAISS vector store with all documents (no caching)
-    vectorstore = initialize_vectorstore(documents)
-    st.success("Documents uploaded and embedded successfully!")
+    results1 = retrieval_chain.run(vector_db1)
+    results2 = retrieval_chain.run(vector_db2)
 
-    # Set up RetrievalQA chain with LangChain
-    retriever = vectorstore.as_retriever()
-    combine_chain = load_qa_chain(llm, chain_type="stuff")
-    qa_chain = RetrievalQA(combine_documents_chain=combine_chain, retriever=retriever)
-
-    # Define comparison function
-    def compare_documents(query):
-        response = qa_chain({"query": query})
-        return response["result"]
-
-    # Interface to compare documents
-    st.subheader("Compare Documents")
-    query = st.text_input("Enter your comparison query:")
-
-    if st.button("Compare"):
-        if not query:
-            st.warning("Please enter a query to compare.")
-        else:
-            result = compare_documents(query)
-            st.write("Comparison Result:")
-            st.write(result)
-
-            # Highlight differences between the first two documents if they exist
-            if len(texts) >= 2:
-                unique_to_doc1, unique_to_doc2, differences = compare_text_blocks(texts[0], texts[1])
-                st.subheader("Unique Text Blocks:")
-
-                if unique_to_doc1:
-                    st.markdown("**Unique to Document A:**")
-                    for block in unique_to_doc1:
-                        st.write(f"- {block}")
-                else:
-                    st.write("No unique blocks in Document A.")
-
-                if unique_to_doc2:
-                    st.markdown("**Unique to Document B:**")
-                    for block in unique_to_doc2:
-                        st.write(f"- {block}")
-                else:
-                    st.write("No unique blocks in Document B.")
-
-                if differences:
-                    st.subheader("Subtle Differences within Common Sections:")
-                    for diff in differences:
-                        st.write(diff)
-
-    # Cleanup temporary files
-    cleanup_temp_files(uploaded_files)
-else:
-    st.warning("Please upload documents to enable comparison.")
+    differences = find_differences(results1, results2)
+    st.write(differences)
