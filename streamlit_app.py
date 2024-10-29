@@ -58,7 +58,7 @@ llm = ChatGroq(groq_api_key="gsk_wHkioomaAXQVpnKqdw4XWGdyb3FYfcpr67W7cAMCQRrNT2q
 
 def compare_documents(documents):
     comparisons = []
-    
+
     for i, doc_a in enumerate(documents):
         for j, doc_b in enumerate(documents[i + 1:], start=i + 1):
             # Extract text content from Document objects
@@ -71,7 +71,7 @@ def compare_documents(documents):
 
             # Compare sentences between Document A and Document B
             for sentence_a in sentences_a:
-                # Default to indicate no similar sentence in Document B
+                # Initialize variables to capture the most similar sentence and its similarity score
                 most_similar_b = "[No similar text in Document B]"
                 highest_similarity = 0
 
@@ -82,13 +82,14 @@ def compare_documents(documents):
                         highest_similarity = similarity
                         most_similar_b = sentence_b
 
-                # If similarity is low, consider them different
-                if highest_similarity < 0.8:  # You can adjust the threshold
+                # If similarity is low, record it as a significant difference
+                if highest_similarity < 0.8:  # Adjust this threshold as needed
                     comparisons.append({
                         "Document A": f"Document {i + 1}",
                         "Document B": f"Document {j + 1}",
                         "Text in Document A": sentence_a,
-                        "Text in Document B": most_similar_b
+                        "Text in Document B": most_similar_b,
+                        "Similarity Score": round(highest_similarity, 2)
                     })
 
     return comparisons
