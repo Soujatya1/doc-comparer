@@ -8,6 +8,8 @@ import os
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
+llm = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
+
 
 def initialize_vectorstore(documents):
     # Initialize embeddings model
