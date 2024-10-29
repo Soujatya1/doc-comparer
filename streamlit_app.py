@@ -9,18 +9,21 @@ import os
 # Initialize the Streamlit app
 st.title("Document Comparer with ChatGroq LLM")
 
+uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
+
 # Initialize document loader, embeddings, and FAISS vector store
 @st.cache_resource  # Use cache to avoid re-initializing on every interaction
-def initialize_faiss_vectorstore():
-    # Load and embed documents
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = FAISS(embeddings)
-    return vectorstore
+documents = []
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        with open(f"temp_{uploaded_file.name}", "wb") as f:
+            f.write(uploaded_file.read())
+        loader = PyPDFLoader(f"temp_{uploaded_file.name}")
+        documents.extend(loader.load())
 
-vectorstore = initialize_faiss_vectorstore()
-
-# Upload and load documents
-uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
+    # Initialize FAISS vectorstore once all documents are loaded
+    vectorstore = initialize_vectorstore(documents)
+    st.success("Documents uploaded and embedded successfully!")
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
