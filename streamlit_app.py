@@ -7,7 +7,7 @@ from langchain_groq import ChatGroq
 import os
 from langchain.chains.question_answering import load_qa_chain
 from docx import Document as DocxDocument
-from langchain.schema import Document
+from langchain.schema import Document as LangChainDocument
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -22,7 +22,7 @@ def initialize_vectorstore(documents):
     return vectorstore
 
 def load_docx(file_path):
-    doc = Document(file_path)
+    doc = DocxDocument(file_path)
     text = []
     for paragraph in doc.paragraphs:
         text.append(paragraph.text)
@@ -46,7 +46,7 @@ if uploaded_files:
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             doc_text = load_docx(file_path)
             # Create a LangChain document object for the loaded text
-            documents.append(Document(page_content=doc_text, metadata={"source": file_path}))
+            documents.append(LangChainDocument(page_content=doc_text, metadata={"source": file_path}))
 
     # Initialize FAISS vector store with all documents (no caching)
     vectorstore = initialize_vectorstore(documents)
