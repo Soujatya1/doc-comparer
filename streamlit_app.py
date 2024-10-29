@@ -5,7 +5,7 @@ from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
-import difflib
+from difflib import ndiff
 from langchain.chains.question_answering import load_qa_chain
 
 # Initialize the Streamlit app
@@ -25,15 +25,26 @@ def cleanup_temp_files(uploaded_files):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-# Function to compare text blocks between two documents
+# Refined function to compare text blocks between two documents
 def compare_text_blocks(text1, text2):
-    blocks1 = set(text1.split('\n'))  # Split text into blocks
-    blocks2 = set(text2.split('\n'))  # Split text into blocks
+    # Split texts into paragraphs for more meaningful comparisons
+    blocks1 = set(text1.split('\n\n'))  # Split by double newline for paragraphs
+    blocks2 = set(text2.split('\n\n'))
 
-    unique_to_doc1 = blocks1 - blocks2  # Blocks in Doc A not in Doc B
-    unique_to_doc2 = blocks2 - blocks1  # Blocks in Doc B not in Doc A
+    # Identify unique paragraphs
+    unique_to_doc1 = blocks1 - blocks2
+    unique_to_doc2 = blocks2 - blocks1
 
-    return unique_to_doc1, unique_to_doc2
+    # Identify small differences in common blocks
+    common_blocks = blocks1.intersection(blocks2)
+    differences = []
+
+    for block in common_blocks:
+        diff = list(ndiff(block.splitlines(), next((b for b in blocks2 if b == block), "").splitlines()))
+        if any(line.startswith('+') or line.startswith('-') for line in diff):
+            differences.append("\n".join(diff))
+
+    return unique_to_doc1, unique_to_doc2, differences
 
 # Upload and load documents
 uploaded_files = st.file_uploader("Upload PDF documents", accept_multiple_files=True, type=["pdf"])
@@ -77,22 +88,27 @@ if uploaded_files:
 
             # Highlight differences between the first two documents if they exist
             if len(texts) >= 2:
-                unique_to_doc1, unique_to_doc2 = compare_text_blocks(texts[0], texts[1])
+                unique_to_doc1, unique_to_doc2, differences = compare_text_blocks(texts[0], texts[1])
                 st.subheader("Unique Text Blocks:")
-                
+
                 if unique_to_doc1:
                     st.markdown("**Unique to Document A:**")
                     for block in unique_to_doc1:
                         st.write(f"- {block}")
                 else:
                     st.write("No unique blocks in Document A.")
-                
+
                 if unique_to_doc2:
                     st.markdown("**Unique to Document B:**")
                     for block in unique_to_doc2:
                         st.write(f"- {block}")
                 else:
                     st.write("No unique blocks in Document B.")
+
+                if differences:
+                    st.subheader("Subtle Differences within Common Sections:")
+                    for diff in differences:
+                        st.write(diff)
 
     # Cleanup temporary files
     cleanup_temp_files(uploaded_files)
