@@ -5,6 +5,7 @@ from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
+from langchain.chains.question_answering import load_qa_chain
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -28,13 +29,17 @@ if uploaded_files:
         loader = PyPDFLoader(f"temp_{uploaded_file.name}")
         documents.extend(loader.load())
 
-    # Initialize FAISS vector store with all documents
+    # Initialize FAISS vector store with all documents (no caching)
     vectorstore = initialize_vectorstore(documents)
     st.success("Documents uploaded and embedded successfully!")
 
     # Set up RetrievalQA chain with LangChain
     retriever = vectorstore.as_retriever()
-    qa_chain = RetrievalQA(llm=llm, retriever=retriever)
+    
+    # Load a basic QA chain for combining documents
+    combine_chain = load_qa_chain(llm, chain_type="stuff")
+
+    qa_chain = RetrievalQA(combine_documents_chain=combine_chain, retriever=retriever)
 
     # Define comparison function
     def compare_documents(query):
