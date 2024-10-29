@@ -27,6 +27,22 @@ if 'last_context' not in st.session_state:
 
 uploaded_files = st.file_uploader("Upload a file", type=["pdf"], accept_multiple_files=True)
 
+def create_prompt(input_text):
+    previous_interactions = "\n".join(
+        [f"You: {h['question']}\nBot: {h['answer']}" for h in st.session_state.history[-5:]]
+    )
+    return ChatPromptTemplate.from_template(
+        f"""
+        Compare the uploaded documents based on their differences and form a good context on the same.
+        Previous Context: {st.session_state.last_context}
+        Previous Interactions:\n{previous_interactions}
+        <context>
+        {{context}}
+        <context>
+        Questions: {input_text}
+        """
+    )
+
 # Load and process documents on initial upload
 if uploaded_files:
     for uploaded_file in uploaded_files:
