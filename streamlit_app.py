@@ -111,13 +111,14 @@ def create_prompt(input_text):
     )
     
 def display_comparisons(comparisons):
-    # Prepare data for tabular format
+    # Prepare data for tabular format, including similarity score for context
     data = {
         "Comparison ID": [f"{i + 1}" for i in range(len(comparisons))],
         "Document A": [comp['Document A'] for comp in comparisons],
         "Document B": [comp['Document B'] for comp in comparisons],
         "Text in Document A": [comp["Text in Document A"] for comp in comparisons],
-        "Text in Document B": [comp["Text in Document B"] for comp in comparisons]
+        "Text in Document B": [comp["Text in Document B"] for comp in comparisons],
+        "Similarity Score": [comp["Similarity Score"] for comp in comparisons]
     }
 
     # Create DataFrame and display table
