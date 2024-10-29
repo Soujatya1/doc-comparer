@@ -6,7 +6,7 @@ from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
 from langchain.chains.question_answering import load_qa_chain
-from docx import Document
+from docx import Document as DocxDocument
 
 # Initialize the Streamlit app
 st.title("Document Comparer!")
@@ -39,10 +39,13 @@ if uploaded_files:
         # Check file type and load documents accordingly
         if uploaded_file.type == "application/pdf":
             loader = PyPDFLoader(file_path)
-            documents.extend(loader.load())
+            pdf_documents = loader.load()
+            documents.extend(pdf_documents)  # Extend with PDF documents
+
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             doc_text = load_docx(file_path)
-            documents.append(doc_text)  # Append the loaded text as a document
+            # Create a LangChain document object for the loaded text
+            documents.append(Document(page_content=doc_text, metadata={"source": file_path}))
 
     # Initialize FAISS vector store with all documents (no caching)
     vectorstore = initialize_vectorstore(documents)
@@ -78,5 +81,3 @@ else:
 # Clean up temporary files
 for uploaded_file in uploaded_files:
     os.remove(f"temp_{uploaded_file.name}")
-else:
-    st.warning("Please upload documents to enable comparison.")
