@@ -260,10 +260,16 @@ if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_sta
         if context1 and context2:
             # Generate comparison using combined context
             comparison_result = generate_comparison(prompt1, context1, context2)
-            
-            # Display comparison results
-            st.write("### Comparison Results")
-            st.write(comparison_result)
+
+            # Print the entire response for inspection
+            print("Comparison Response:", comparison_result)
+
+            # Adjust based on the actual structure of comparison_result
+            if isinstance(comparison_result, dict) and 'output' in comparison_result:
+                st.write("### Comparison Results")
+                st.write(comparison_result['output'])  # Change this based on the correct key
+            else:
+                st.write("Error: Unexpected response structure.")
         else:
             st.write("No valid document content found for comparison.")
     else:
