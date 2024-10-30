@@ -1,3 +1,4 @@
+
 import streamlit as st
 from langchain_groq import ChatGroq
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -12,8 +13,6 @@ import time
 import requests
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
 st.title("Document Comparer!")
 st.subheader("Compare Your Documents")
@@ -94,41 +93,25 @@ if uploaded_files_2:
         st.session_state.final_documents_2 = st.session_state.text_splitter_2.split_documents(st.session_state.docs_2)
         st.session_state.vectors_2 = FAISS.from_documents(st.session_state.final_documents_2, st.session_state.embeddings_2)
 
-def create_comparison_prompt(input_text):
-    # Update the prompt to expect a single 'context' variable
-    prompt_template = (
-        "Compare the following document sets based on their content:\n\n"
-        "{context}\n\n"
-        "Comparison based on the input question: {input_text}"
+# Language translation setup (reuse existing code for translation)
+
+# Chat and retrieval function
+def create_prompt(input_text):
+    previous_interactions = "\n".join(
+        [f"You: {h['question']}\nBot: {h['answer']}" for h in st.session_state.history[-5:]]
     )
-    return PromptTemplate(input_variables=["context", "input_text"], template=prompt_template)
+    return ChatPromptTemplate.from_template(
+        f"""
+        Answer the questions based on the provided context only.
+        Previous Context: {st.session_state.last_context}
+        Previous Interactions:\n{previous_interactions}
+        <context>
+        {{context}}
+        <context>
+        Question: {input_text}
+        """
+    )
 
-def generate_comparison(input_text, context1, context2):
-    # Combine both contexts into a single variable
-    combined_context = f"Document Set 1: {context1}\n\nDocument Set 2: {context2}"
-    
-    # Create prompt and chain with the combined context
-    comparison_prompt = create_comparison_prompt(input_text)
-    comparison_chain = LLMChain(llm=llm, prompt=comparison_prompt)  # Ensure 'llm' is defined and your model
-    
-    # Generate the comparison response using the combined context
-    comparison_response = comparison_chain.invoke({"context": combined_context, "input_text": input_text})
-
-    # Inspect the response
-    print("Comparison Response:", comparison_response)  # Print the entire response for debugging
-
-    # Check the response structure
-    if isinstance(comparison_response, dict):
-        if 'text' in comparison_response:
-            return comparison_response['text']
-        else:
-            # Print keys in the response if 'text' is not found
-            print("Available keys in the response:", comparison_response.keys())
-            raise ValueError("Expected 'text' key is missing from the response.")
-    else:
-        raise ValueError("Unexpected response type: {}".format(type(comparison_response)))
-
-    
 # Language selection (reuse existing code for language mapping and detection)
 def translate_text(text, source_language, target_language):
     api_url = "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline/"
@@ -258,33 +241,56 @@ with input_box.container():
     prompt1 = st.text_input("Enter your question here...", key="user_input", placeholder="Type your question...")
 
 if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_state:
-    retriever_1 = st.session_state.vectors_1.as_retriever(search_type="similarity", k=3)
-    retriever_2 = st.session_state.vectors_2.as_retriever(search_type="similarity", k=3)
-    
-    response_1_docs = retriever_1.get_relevant_documents(prompt1)
-    response_2_docs = retriever_2.get_relevant_documents(prompt1)
-    
-    # Check if the responses are of the expected type
-    if isinstance(response_1_docs, list) and isinstance(response_2_docs, list):
-        # Extract content from documents, assuming they are not strings
-        context1 = " ".join([doc.page_content for doc in response_1_docs if hasattr(doc, 'page_content')])
-        context2 = " ".join([doc.page_content for doc in response_2_docs if hasattr(doc, 'page_content')])
-        
-        # Check if context1 and context2 are not empty
-        if context1 and context2:
-            # Generate comparison using combined context
-            comparison_result = generate_comparison(prompt1, context1, context2)
+    # Detect the language of the input
+    detected_language = detect_language(prompt1)
+    source_language = detected_language or "en"
 
-            # Print the entire response for inspection
-            print("Comparison Response:", comparison_result)
+    # Translate input to English if necessary
+    translated_prompt = prompt1  # Modify this if translation is required
 
-            # Adjust based on the actual structure of comparison_result
-            if isinstance(comparison_result, dict) and 'output' in comparison_result:
-                st.write("### Comparison Results")
-                st.write(comparison_result['output'])  # Change this based on the correct key
-            else:
-                st.write("Error: Unexpected response structure.")
-        else:
-            st.write("No valid document content found for comparison.")
+    # Document Set 1 retrieval
+    document_chain_1 = create_stuff_documents_chain(llm, create_prompt(translated_prompt))
+    retriever_1 = st.session_state.vectors_1.as_retriever(search_type="similarity", k=2)
+    retrieval_chain_1 = create_retrieval_chain(retriever_1, document_chain_1)
+    response_1 = retrieval_chain_1.invoke({'input': translated_prompt})
+    answer_1 = response_1['answer']
+    context_1 = [doc.page_content for doc in response_1.get("context", [])]
+
+    # Document Set 2 retrieval
+    document_chain_2 = create_stuff_documents_chain(llm, create_prompt(translated_prompt))
+    retriever_2 = st.session_state.vectors_2.as_retriever(search_type="similarity", k=2)
+    retrieval_chain_2 = create_retrieval_chain(retriever_2, document_chain_2)
+    response_2 = retrieval_chain_2.invoke({'input': translated_prompt})
+    answer_2 = response_2['answer']
+    context_2 = [doc.page_content for doc in response_2.get("context", [])]
+
+    # Comparison logic to identify overlaps and unique content
+    common_content = set(context_1) & set(context_2)  # Content present in both sets
+    unique_to_set_1 = set(context_1) - common_content
+    unique_to_set_2 = set(context_2) - common_content
+
+    # Display answers
+    st.write("**Document Set 1 Answer:**", answer_1)
+    st.write("**Document Set 2 Answer:**", answer_2)
+
+    # Save responses to session history
+    st.session_state.history.append({"question": prompt1, "answer_set_1": answer_1, "answer_set_2": answer_2})
+
+    # Display comparison of retrieved document contents
+    st.subheader("Comparison Summary")
+    if common_content:
+        with st.expander("Common Content in Both Sets"):
+            for content in common_content:
+                st.write(content)
     else:
-        st.write("Error: Retrieved documents are not in the expected format.")
+        st.write("No common content found between the document sets.")
+
+    if unique_to_set_1:
+        with st.expander("Unique Content in Document Set 1"):
+            for content in unique_to_set_1:
+                st.write(content)
+
+    if unique_to_set_2:
+        with st.expander("Unique Content in Document Set 2"):
+            for content in unique_to_set_2:
+                st.write(content)
