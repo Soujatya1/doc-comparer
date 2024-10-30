@@ -115,14 +115,18 @@ def generate_comparison(input_text, context1, context2):
     comparison_response = comparison_chain.invoke({"context": combined_context, "input_text": input_text})
 
     # Inspect the response
-    print("Comparison Response:", comparison_response)  # For debugging
+    print("Comparison Response:", comparison_response)  # Print the entire response for debugging
 
-    # Access the 'text' key from the response
-    if isinstance(comparison_response, dict) and 'text' in comparison_response:
-        return comparison_response['text']
+    # Check the response structure
+    if isinstance(comparison_response, dict):
+        if 'text' in comparison_response:
+            return comparison_response['text']
+        else:
+            # Print keys in the response if 'text' is not found
+            print("Available keys in the response:", comparison_response.keys())
+            raise ValueError("Expected 'text' key is missing from the response.")
     else:
-        # Handle unexpected response structure
-        raise ValueError("Unexpected response structure: {}".format(comparison_response))
+        raise ValueError("Unexpected response type: {}".format(type(comparison_response)))
 
     
 # Language selection (reuse existing code for language mapping and detection)
