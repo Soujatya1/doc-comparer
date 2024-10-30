@@ -3,7 +3,7 @@ import pandas as pd
 import PyPDF2
 from langchain_groq import ChatGroq
 from langchain.vectorstores import FAISS
-from langchain.chains import ChatChain
+from langchain.chains import LLMChain
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Load the pre-trained Langchain model and tokenizer
@@ -21,7 +21,7 @@ index = vector_store.index
 llm = ChatGroq(groq_api_key="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", model_name="Llama3-70b-8192")
 
 # Create a ChatChain
-chain = ChatChain(llm, vector_store)
+chain = LLMChain(llm, vector_store)
 
 # Create a Streamlit application
 st.title("Document Comparer Bot")
