@@ -3,7 +3,7 @@ langchain_community
 langchain_core
 langchain_groq
 faiss-cpu
-pypdf2
+pypdf
 sentence_transformers
 langchain
 chromadb
