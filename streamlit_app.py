@@ -97,19 +97,18 @@ if uploaded_files_2:
 # Language translation setup (reuse existing code for translation)
 
 # Chat and retrieval function
-def create_prompt(input_text):
-    previous_interactions = "\n".join(
-        [f"You: {h['question']}\nBot: {h['answer']}" for h in st.session_state.history[-5:]]
-    )
+def create_comparison_prompt(input_text):
     return ChatPromptTemplate.from_template(
         f"""
-        Answer the questions based on the provided context only.
-        Previous Context: {st.session_state.last_context}
-        Previous Interactions:\n{previous_interactions}
-        <context>
-        {{context}}
-        <context>
-        Question: {input_text}
+        Given the following query: '{input_text}', compare the main ideas or information found in both Document Set 1 and Document Set 2.
+        Provide a clear list of differences and similarities.
+        Document Set 1 Context:
+        {{context1}}
+        
+        Document Set 2 Context:
+        {{context2}}
+        
+        Provide a list of key differences and any relevant similarities.
         """
     )
 
