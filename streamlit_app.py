@@ -13,6 +13,7 @@ import requests
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
 from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 
 st.title("Document Comparer!")
 st.subheader("Compare Your Documents")
