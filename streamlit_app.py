@@ -108,13 +108,12 @@ def generate_comparison(input_text, context1, context2):
     
     # Create prompt and chain with the combined context
     comparison_prompt = create_comparison_prompt(input_text)
-    comparison_chain = create_stuff_documents_chain(llm, comparison_prompt)
+    comparison_chain = LLMChain(llm=llm, prompt=comparison_prompt)  # Ensure 'llm' is defined and your model
     
     # Generate the comparison response using the combined context
     comparison_response = comparison_chain.invoke({"context": combined_context, "input_text": input_text})
     return comparison_response['answer']
-
-
+    
 # Language selection (reuse existing code for language mapping and detection)
 def translate_text(text, source_language, target_language):
     api_url = "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline/"
@@ -250,13 +249,21 @@ if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_sta
     response_1_docs = retriever_1.get_relevant_documents(prompt1)
     response_2_docs = retriever_2.get_relevant_documents(prompt1)
     
-    # Extract content from documents
-    context1 = " ".join([doc.page_content for doc in response_1_docs])
-    context2 = " ".join([doc.page_content for doc in response_2_docs])
-    
-    # Generate comparison using combined context
-    comparison_result = generate_comparison(prompt1, context1, context2)
-    
-    # Display comparison results
-    st.write("### Comparison Results")
-    st.write(comparison_result)
+    # Check if the responses are of the expected type
+    if isinstance(response_1_docs, list) and isinstance(response_2_docs, list):
+        # Extract content from documents, assuming they are not strings
+        context1 = " ".join([doc.page_content for doc in response_1_docs if hasattr(doc, 'page_content')])
+        context2 = " ".join([doc.page_content for doc in response_2_docs if hasattr(doc, 'page_content')])
+        
+        # Check if context1 and context2 are not empty
+        if context1 and context2:
+            # Generate comparison using combined context
+            comparison_result = generate_comparison(prompt1, context1, context2)
+            
+            # Display comparison results
+            st.write("### Comparison Results")
+            st.write(comparison_result)
+        else:
+            st.write("No valid document content found for comparison.")
+    else:
+        st.write("Error: Retrieved documents are not in the expected format.")
