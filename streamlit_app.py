@@ -110,14 +110,14 @@ def create_comparison_prompt(input_text):
     )
 
 def generate_comparison(input_text, context1, context2):
-    # Combine contexts for input into the chain
+    # Combine both contexts into a single variable
     combined_context = f"Document Set 1: {context1}\n\nDocument Set 2: {context2}"
     
-    # Use the LLM with the combined prompt and context
+    # Update the prompt to accept a single 'context' variable
     comparison_prompt = create_comparison_prompt(input_text)
     comparison_chain = create_stuff_documents_chain(llm, comparison_prompt)
     
-    # Get the comparison response
+    # Generate the comparison response with combined context
     comparison_response = comparison_chain.invoke({"context": combined_context})
     return comparison_response['answer']
 
@@ -251,7 +251,7 @@ with input_box.container():
     prompt1 = st.text_input("Enter your question here...", key="user_input", placeholder="Type your question...")
 
 if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_state:
-    # Retrieve relevant documents using get_relevant_documents method
+    # Retrieve relevant documents using get_relevant_documents
     retriever_1 = st.session_state.vectors_1.as_retriever(search_type="similarity", k=3)
     retriever_2 = st.session_state.vectors_2.as_retriever(search_type="similarity", k=3)
     
@@ -262,9 +262,9 @@ if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_sta
     context1 = " ".join([doc.page_content for doc in response_1_docs])
     context2 = " ".join([doc.page_content for doc in response_2_docs])
     
-    # Generate comparison
+    # Generate comparison using the combined context
     comparison_result = generate_comparison(prompt1, context1, context2)
     
-    # Display comparison
+    # Display comparison results
     st.write("### Comparison Results")
     st.write(comparison_result)
