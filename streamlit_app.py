@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 from langchain_groq import ChatGroq
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -14,6 +12,7 @@ import time
 import requests
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
+from langchain.prompts import PromptTemplate
 
 st.title("Document Comparer!")
 st.subheader("Compare Your Documents")
