@@ -251,15 +251,19 @@ with input_box.container():
     prompt1 = st.text_input("Enter your question here...", key="user_input", placeholder="Type your question...")
 
 if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_state:
-    # Retrieve context from each document set
+    # Retrieve relevant documents using get_relevant_documents method
     retriever_1 = st.session_state.vectors_1.as_retriever(search_type="similarity", k=3)
     retriever_2 = st.session_state.vectors_2.as_retriever(search_type="similarity", k=3)
     
-    response_1 = retriever_1.retrieve(prompt1)
-    response_2 = retriever_2.retrieve(prompt1)
+    response_1_docs = retriever_1.get_relevant_documents(prompt1)
+    response_2_docs = retriever_2.get_relevant_documents(prompt1)
+    
+    # Extract content from documents
+    context1 = " ".join([doc.page_content for doc in response_1_docs])
+    context2 = " ".join([doc.page_content for doc in response_2_docs])
     
     # Generate comparison
-    comparison_result = generate_comparison(prompt1, response_1['documents'], response_2['documents'])
+    comparison_result = generate_comparison(prompt1, context1, context2)
     
     # Display comparison
     st.write("### Comparison Results")
