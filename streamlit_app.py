@@ -95,30 +95,24 @@ if uploaded_files_2:
         st.session_state.vectors_2 = FAISS.from_documents(st.session_state.final_documents_2, st.session_state.embeddings_2)
 
 def create_comparison_prompt(input_text):
-    return ChatPromptTemplate.from_template(
-        f"""
-        Compare the main ideas or information based on the following query: '{input_text}'.
-        
-        Context for Document Set 1:
-        {{context1}}
-        
-        Context for Document Set 2:
-        {{context2}}
-        
-        List the key differences and any similarities between Document Set 1 and Document Set 2.
-        """
+    # Update the prompt to expect a single 'context' variable
+    prompt_template = (
+        "Compare the following document sets based on their content:\n\n"
+        "{context}\n\n"
+        "Comparison based on the input question: {input_text}"
     )
+    return PromptTemplate(input_variables=["context", "input_text"], template=prompt_template)
 
 def generate_comparison(input_text, context1, context2):
     # Combine both contexts into a single variable
     combined_context = f"Document Set 1: {context1}\n\nDocument Set 2: {context2}"
     
-    # Update the prompt to accept a single 'context' variable
+    # Create prompt and chain with the combined context
     comparison_prompt = create_comparison_prompt(input_text)
     comparison_chain = create_stuff_documents_chain(llm, comparison_prompt)
     
-    # Generate the comparison response with combined context
-    comparison_response = comparison_chain.invoke({"context": combined_context})
+    # Generate the comparison response using the combined context
+    comparison_response = comparison_chain.invoke({"context": combined_context, "input_text": input_text})
     return comparison_response['answer']
 
 
@@ -251,7 +245,6 @@ with input_box.container():
     prompt1 = st.text_input("Enter your question here...", key="user_input", placeholder="Type your question...")
 
 if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_state:
-    # Retrieve relevant documents using get_relevant_documents
     retriever_1 = st.session_state.vectors_1.as_retriever(search_type="similarity", k=3)
     retriever_2 = st.session_state.vectors_2.as_retriever(search_type="similarity", k=3)
     
@@ -262,7 +255,7 @@ if prompt1 and "vectors_1" in st.session_state and "vectors_2" in st.session_sta
     context1 = " ".join([doc.page_content for doc in response_1_docs])
     context2 = " ".join([doc.page_content for doc in response_2_docs])
     
-    # Generate comparison using the combined context
+    # Generate comparison using combined context
     comparison_result = generate_comparison(prompt1, context1, context2)
     
     # Display comparison results
