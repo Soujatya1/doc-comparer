@@ -49,7 +49,11 @@ def find_differences_table(text1, text2):
 # Function to analyze differences using the ChatGroq model
 def analyze_differences(doc1_text, doc2_text):
     prompt = f"Analyze the following documents and highlight the key differences:\n\nDocument 1:\n{doc1_text}\n\nDocument 2:\n{doc2_text}\n\nPlease summarize the differences in a concise manner."
-    response = model.chat(prompt)
+    
+    # Use the correct method to get a response from ChatGroq
+    response = model.generate(prompt)
+    
+    # Extract the generated text from the response
     return response.get("generation", "No response generated.")
 
 # Streamlit app
