@@ -11,16 +11,24 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text.strip()  # Remove trailing whitespace
 
+# Function to normalize text by removing spaces
+def normalize_text(text):
+    return text.replace(" ", "").replace("\n", "").strip()  # Remove all spaces and newlines
+
 # Function to find differences and format them in a tabular format
 def find_differences_table(text1, text2):
-    # Split the texts into lines for comparison
+    # Normalize the texts by removing spaces for comparison
+    normalized_text1 = normalize_text(text1)
+    normalized_text2 = normalize_text(text2)
+
+    # Split the original texts into lines for context
     lines1 = text1.splitlines()
     lines2 = text2.splitlines()
 
-    # Use unified diff to capture content differences
+    # Use unified diff to capture content differences based on normalized texts
     diff = difflib.unified_diff(
-        lines1,
-        lines2,
+        normalized_text1,
+        normalized_text2,
         lineterm='',
         fromfile='Document 1',
         tofile='Document 2'
