@@ -50,8 +50,15 @@ def find_differences_table(text1, text2):
 def analyze_differences(doc1_text, doc2_text):
     prompt = f"Analyze the following documents and highlight the key differences:\n\nDocument 1:\n{doc1_text}\n\nDocument 2:\n{doc2_text}\n\nPlease summarize the differences in a concise manner."
     
-    # Use the correct method to get a response from ChatGroq
-    response = model.generate(prompt)
+    # Prepare the input in the expected format
+    input_data = {
+        "prompt": prompt,
+        "max_tokens": 500,  # Adjust based on your needs
+        "temperature": 0.2  # Adjust based on your needs
+    }
+    
+    # Call the generate method with the correct input structure
+    response = model.generate(input_data)
     
     # Extract the generated text from the response
     return response.get("generation", "No response generated.")
