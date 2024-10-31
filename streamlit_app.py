@@ -4,6 +4,9 @@ import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
 import re
+import nltk
+from nltk.tokenize import sent_tokenize
+
 # Function to read PDF text
 def read_pdf(file):
     with pdfplumber.open(file) as pdf:
@@ -12,27 +15,32 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
     
-def preprocess_line(line):
-    # Remove common bullet points or symbols at the beginning of each line
-    line = re.sub(r'^[\s•*\-]+', '', line)  # Place '-' at the end or escape it to avoid issues
-    # Normalize whitespace within the line
-    line = re.sub(r'\s+', ' ', line).strip()
-    return line
+nltk.download('punkt')
 
-# Function to preprocess each document and return a list of normalized lines
-def normalize_lines(text):
-    return [preprocess_line(line) for line in text.splitlines()]
+# Function to clean and normalize each sentence, removing bullet points and extra spaces
+def preprocess_sentence(sentence):
+    # Remove common bullet points or symbols at the beginning of each sentence
+    sentence = re.sub(r'^[\s•*\-]+', '', sentence)  # Ensure '-' is correctly escaped or positioned
+    # Normalize whitespace within the sentence
+    sentence = re.sub(r'\s+', ' ', sentence).strip()
+    return sentence
+
+# Function to preprocess each document and return a list of normalized sentences
+def normalize_sentences(text):
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(text)
+    return [preprocess_sentence(sentence) for sentence in sentences]
 
 # Function to find differences and format them in a tabular format, focusing on meaningful content changes
 def find_differences_table(text1, text2):
-    # Normalize each line of both texts
-    normalized_text1 = normalize_lines(text1)
-    normalized_text2 = normalize_lines(text2)
+    # Normalize each sentence of both texts
+    normalized_sentences1 = normalize_sentences(text1)
+    normalized_sentences2 = normalize_sentences(text2)
     
     # Use unified diff to capture only content additions/deletions
     diff = difflib.unified_diff(
-        normalized_text1,
-        normalized_text2,
+        normalized_sentences1,
+        normalized_sentences2,
         lineterm=''
     )
 
