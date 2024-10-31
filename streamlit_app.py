@@ -58,7 +58,7 @@ def analyze_differences(doc1_text, doc2_text):
     )
     
     # Directly use the prompt string for the model
-    response = model.chat(prompt)  # Use chat() or generate() as per library expectations
+    response = model.invoke(prompt)  # Use chat() or generate() as per library expectations
 
     # Extract the generated text from the response
     return response.get("generation", "No response generated.")
