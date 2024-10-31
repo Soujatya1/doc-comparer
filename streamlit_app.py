@@ -7,9 +7,12 @@ import pdfplumber
 
 def extract_text_from_pdf(pdf_file):
     text = ""
+    # Use pdfplumber directly with the UploadedFile object
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            text += page.extract_text() + "\n"
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
     return text
 
 # Step 1: Load and Split Documents
