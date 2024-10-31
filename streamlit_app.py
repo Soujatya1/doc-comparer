@@ -3,7 +3,7 @@ import difflib
 import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
-
+import re
 # Function to read PDF text
 def read_pdf(file):
     with pdfplumber.open(file) as pdf:
@@ -11,10 +11,19 @@ def read_pdf(file):
         for page in pdf.pages:
             text += page.extract_text() + "\n"
     return text
-
+    
+def normalize_text(text):
+    # Remove multiple spaces and strip leading/trailing whitespace
+    return re.sub(r'\s+', ' ', text).strip()
+    
 # Function to find differences and format them in a tabular format
 # Function to find differences and format them in a tabular format, focusing only on textual content changes
 def find_differences_table(text1, text2):
+    # Normalize both texts to ignore whitespace differences
+    text1 = normalize_text(text1)
+    text2 = normalize_text(text2)
+    
+    # Use unified diff to capture only content additions/deletions
     diff = difflib.unified_diff(
         text1.splitlines(),
         text2.splitlines(),
@@ -23,7 +32,7 @@ def find_differences_table(text1, text2):
 
     differences = []
     for line in diff:
-        # Capture only meaningful content additions or deletions, excluding structural markers
+        # Capture only content additions or deletions, excluding structural and whitespace changes
         if line.startswith('+') and not line.startswith('+++'):
             differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
