@@ -3,6 +3,14 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
+import pdfplumber
+
+def extract_text_from_pdf(pdf_file):
+    text = ""
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() + "\n"
+    return text
 
 # Step 1: Load and Split Documents
 def load_and_split_document(content):
@@ -38,14 +46,14 @@ st.title("Document Comparison Tool")
 st.write("Upload two documents to compare their content differences.")
 
 # File Upload
-doc1 = st.file_uploader("Upload Document 1", type=["txt", "pdf"])
-doc2 = st.file_uploader("Upload Document 2", type=["txt", "pdf"])
+doc1 = st.file_uploader("Upload Document 1 (PDF)", type="pdf")
+doc2 = st.file_uploader("Upload Document 2 (PDF)", type="pdf")
 
 # Trigger Comparison
 if doc1 and doc2:
-    # Load Document Content
-    doc1_content = doc1.read().decode("utf-8")
-    doc2_content = doc2.read().decode("utf-8")
+    # Extract Text from PDF Documents
+    doc1_content = extract_text_from_pdf(doc1)
+    doc2_content = extract_text_from_pdf(doc2)
     
     # Split Documents into Sections
     doc1_sections = load_and_split_document(doc1_content)
@@ -63,4 +71,4 @@ if doc1 and doc2:
         st.write(f"**Difference in Section {idx+1}:**")
         st.write(diff)
 else:
-    st.write("Please upload both documents to proceed with the comparison.")
+    st.write("Please upload both PDF documents to proceed with the comparison.")
