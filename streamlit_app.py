@@ -1,6 +1,7 @@
 import streamlit as st
 import difflib
 import pdfplumber
+import pandas as pd
 from langchain_groq import ChatGroq
 
 # Function to read PDF text
@@ -11,17 +12,24 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
 
-# Function to find concise differences between two texts
-def find_differences(text1, text2):
-    # Use unified_diff for a more compact output
+# Function to find differences and format them in a tabular format
+def find_differences_table(text1, text2):
     diff = difflib.unified_diff(
         text1.splitlines(),
         text2.splitlines(),
         lineterm=''
     )
-    # Filter to include only lines starting with '+', '-', or '@' for actual changes
-    actual_differences = [line for line in diff if line.startswith(('+', '-', '@'))]
-    return '\n'.join(actual_differences)
+
+    differences = []
+    for line in diff:
+        if line.startswith('+') and not line.startswith('+++'):
+            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
+        elif line.startswith('-') and not line.startswith('---'):
+            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
+        elif line.startswith('@'):
+            differences.append({"Document": "Context", "Change Type": "Context", "Text": line.strip()})
+
+    return pd.DataFrame(differences)
 
 # Function to summarize differences using an LLM
 def summarize_differences(diff_text):
@@ -47,13 +55,14 @@ if uploaded_file1 and uploaded_file2:
     st.subheader("Document 2")
     st.text_area("Document 2 Text", value=doc2_text, height=300)
 
-    # Show concise differences
-    diff_output = find_differences(doc1_text, doc2_text)
+    # Show differences in a table format
+    diff_table = find_differences_table(doc1_text, doc2_text)
     st.subheader("Differences")
-    st.text_area("Differences", value=diff_output, height=300)
+    st.write(diff_table)
 
     # Summarize the differences using LLM
     if st.button("Summarize Differences"):
-        summary = summarize_differences(diff_output)
+        diff_text = '\n'.join(diff_table["Text"].tolist())
+        summary = summarize_differences(diff_text)
         st.subheader("Summary of Differences")
         st.text(summary)
