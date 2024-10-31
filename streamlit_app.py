@@ -14,7 +14,7 @@ def read_pdf(file):
     
 def preprocess_line(line):
     # Remove common bullet points or symbols at the beginning of each line
-    line = re.sub(r'^[\s•*-\s]+', '', line)
+    line = re.sub(r'^[\s•*\-]+', '', line)  # Place '-' at the end or escape it to avoid issues
     # Normalize whitespace within the line
     line = re.sub(r'\s+', ' ', line).strip()
     return line
