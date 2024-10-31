@@ -11,12 +11,16 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
 
-# Function to find only differences between two texts
+# Function to find concise differences between two texts
 def find_differences(text1, text2):
-    d = difflib.Differ()
-    diff = list(d.compare(text1.splitlines(), text2.splitlines()))
-    # Filter out lines that start with ' ' (no difference)
-    actual_differences = [line for line in diff if line[0] != ' ']
+    # Use unified_diff for a more compact output
+    diff = difflib.unified_diff(
+        text1.splitlines(),
+        text2.splitlines(),
+        lineterm=''
+    )
+    # Filter to include only lines starting with '+', '-', or '@' for actual changes
+    actual_differences = [line for line in diff if line.startswith(('+', '-', '@'))]
     return '\n'.join(actual_differences)
 
 # Function to summarize differences using an LLM
@@ -43,7 +47,7 @@ if uploaded_file1 and uploaded_file2:
     st.subheader("Document 2")
     st.text_area("Document 2 Text", value=doc2_text, height=300)
 
-    # Show only actual differences
+    # Show concise differences
     diff_output = find_differences(doc1_text, doc2_text)
     st.subheader("Differences")
     st.text_area("Differences", value=diff_output, height=300)
