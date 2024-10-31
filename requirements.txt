@@ -13,4 +13,3 @@ xlsxwriter
 numpy
 python-docx
 pdfplumber
-io
