@@ -2,6 +2,7 @@ import streamlit as st
 import difflib
 import pdfplumber
 import pandas as pd
+import re
 from langchain_groq import ChatGroq
 
 # Function to read PDF text
@@ -12,8 +13,20 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
 
+# Function to normalize text by removing structural elements
+def normalize_text(text):
+    # Remove bullet points, extra spaces, and line breaks to focus on textual content
+    text = re.sub(r'(\n\s*\n)+', '\n', text)  # Remove extra line breaks
+    text = re.sub(r'\s+', ' ', text).strip()  # Remove excessive whitespace
+    text = re.sub(r'•|-|\*|\d+\.', '', text)  # Remove common bullet points and numbering
+    return text
+
 # Function to find differences and format them in a tabular format
 def find_differences_table(text1, text2):
+    # Normalize texts to ignore structural differences
+    text1 = normalize_text(text1)
+    text2 = normalize_text(text2)
+
     diff = difflib.unified_diff(
         text1.splitlines(),
         text2.splitlines(),
@@ -26,9 +39,7 @@ def find_differences_table(text1, text2):
             differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
             differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
-        elif line.startswith('@'):
-            differences.append({"Document": "Context", "Change Type": "Context", "Text": line.strip()})
-
+    
     return pd.DataFrame(differences)
 
 # Function to summarize differences using an LLM
