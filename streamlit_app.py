@@ -4,6 +4,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
+import io
 
 # Function to extract text from PDF using pdfplumber
 def extract_text_from_pdf(pdf_file):
