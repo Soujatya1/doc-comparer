@@ -1,13 +1,12 @@
 import streamlit as st
-import pdfplumber
+import PyPDF2
+import io
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
-import io
-import PyPDF2
 
-# Function to extract text from PDF using pdfplumber
+# Function to extract text from PDF using PyPDF2
 def extract_text_from_pdf(pdf_file):
     text = ""
     # Read the file bytes into a BytesIO buffer
