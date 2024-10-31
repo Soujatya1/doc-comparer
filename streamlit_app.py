@@ -12,27 +12,26 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
     
-def normalize_text(text):
-    # Remove multiple spaces and strip leading/trailing whitespace
-    return re.sub(r'\s+', ' ', text).strip()
-    
-# Function to find differences and format them in a tabular format
-# Function to find differences and format them in a tabular format, focusing only on textual content changes
+def normalize_lines(text):
+    # Split the text into lines, normalize each line, and return as a list of lines
+    return [re.sub(r'\s+', ' ', line).strip() for line in text.splitlines()]
+
+# Function to find differences and format them in a tabular format, ignoring structural and whitespace differences
 def find_differences_table(text1, text2):
-    # Normalize both texts to ignore whitespace differences
-    text1 = normalize_text(text1)
-    text2 = normalize_text(text2)
+    # Normalize each line of both texts to ignore whitespace differences
+    normalized_text1 = normalize_lines(text1)
+    normalized_text2 = normalize_lines(text2)
     
     # Use unified diff to capture only content additions/deletions
     diff = difflib.unified_diff(
-        text1.splitlines(),
-        text2.splitlines(),
+        normalized_text1,
+        normalized_text2,
         lineterm=''
     )
 
     differences = []
     for line in diff:
-        # Capture only content additions or deletions, excluding structural and whitespace changes
+        # Capture only meaningful content additions or deletions, excluding structural markers
         if line.startswith('+') and not line.startswith('+++'):
             differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
