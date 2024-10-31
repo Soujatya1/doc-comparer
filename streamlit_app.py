@@ -4,6 +4,7 @@ import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
 import re
+from difflib import SequenceMatcher
 
 # Function to read PDF text
 def read_pdf(file):
@@ -21,29 +22,22 @@ def normalize_text(text):
     return [word.lower() for word in words]  # Normalize to lowercase
 
 # Function to find differences and format them in a tabular format, focusing solely on text additions and deletions
-def find_differences_table(text1, text2):
-    # Normalize the entire texts into lists of words
-    normalized_text1 = normalize_text(text1)
-    normalized_text2 = normalize_text(text2)
+def find_differences_sequence(text1, text2):
+    # Normalize text into sentences
+    sentences1 = normalize_text(text1)
+    sentences2 = normalize_text(text2)
 
-    # Use unified diff to capture only content additions/deletions
-    diff = difflib.unified_diff(
-        normalized_text1,
-        normalized_text2,
-        lineterm=''
-    )
-
+    # Create a SequenceMatcher instance
+    matcher = SequenceMatcher(None, sentences1, sentences2)
+    
     differences = []
-    for line in diff:
-        # Capture only meaningful content additions or deletions
-        if line.startswith('+') and not line.startswith('+++'):
-            changed_part = line[1:].strip()
-            if changed_part:  # Only consider non-empty additions
-                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
-        elif line.startswith('-') and not line.startswith('---'):
-            changed_part = line[1:].strip()
-            if changed_part:  # Only consider non-empty deletions
-                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'insert':
+            for sentence in sentences2[j1:j2]:
+                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": sentence})
+        elif tag == 'delete':
+            for sentence in sentences1[i1:i2]:
+                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": sentence})
 
     return pd.DataFrame(differences)
 
