@@ -4,8 +4,7 @@ import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
 import re
-import nltk
-from nltk.tokenize import sent_tokenize
+import numpy as np
 
 # Function to read PDF text
 def read_pdf(file):
@@ -14,44 +13,45 @@ def read_pdf(file):
         for page in pdf.pages:
             text += page.extract_text() + "\n"
     return text
-    
-# Function to clean and normalize each sentence, removing bullet points and extra spaces
-def preprocess_sentence(sentence):
-    # Remove common bullet points or symbols at the beginning of each sentence
-    sentence = re.sub(r'^[\s•*\-]+', '', sentence)  # Ensure '-' is correctly escaped or positioned
-    # Normalize whitespace within the sentence
-    sentence = re.sub(r'\s+', ' ', sentence).strip()
-    return sentence
 
-# Function to preprocess each document and return a list of normalized sentences
-def normalize_sentences(text):
-    # Tokenize the text into sentences
-    sentences = sent_tokenize(text)
-    return [preprocess_sentence(sentence) for sentence in sentences]
+def preprocess_paragraph(paragraph):
+    # Normalize whitespace and remove any leading/trailing whitespace
+    return re.sub(r'\s+', ' ', paragraph).strip()
+
+# Function to preprocess each document and return a list of normalized paragraphs
+def normalize_paragraphs(text):
+    return [preprocess_paragraph(p) for p in text.split('\n\n')]  # Split by double newline for paragraphs
 
 # Function to find differences and format them in a tabular format, focusing on meaningful content changes
-def find_differences_table(text1, text2):
-    # Normalize each sentence of both texts
-    normalized_sentences1 = normalize_sentences(text1)
-    normalized_sentences2 = normalize_sentences(text2)
-    
-    # Use unified diff to capture only content additions/deletions
-    diff = difflib.unified_diff(
-        normalized_sentences1,
-        normalized_sentences2,
-        lineterm=''
-    )
-
+def find_differences_table(paragraphs1, paragraphs2):
     differences = []
-    for line in diff:
-        # Capture only meaningful content additions or deletions, ignoring structural markers
-        if line.startswith('+') and not line.startswith('+++'):
-            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
-        elif line.startswith('-') and not line.startswith('---'):
-            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
+    
+    # Compare paragraphs from both documents
+    for i, para1 in enumerate(paragraphs1):
+        if i < len(paragraphs2):
+            para2 = paragraphs2[i]
+            if para1 != para2:
+                differences.append({
+                    "Document": "Document 1",
+                    "Change Type": "Change",
+                    "Text": f"Old: {para1}\nNew: {para2}"
+                })
+        else:
+            differences.append({
+                "Document": "Document 1",
+                "Change Type": "Deletion",
+                "Text": para1
+            })
+    
+    # Check for any additional paragraphs in Document 2
+    for j in range(len(paragraphs1), len(paragraphs2)):
+        differences.append({
+            "Document": "Document 2",
+            "Change Type": "Addition",
+            "Text": paragraphs2[j]
+        })
 
     return pd.DataFrame(differences)
-
 
 # Function to summarize differences using an LLM
 def summarize_differences(diff_text):
@@ -77,8 +77,12 @@ if uploaded_file1 and uploaded_file2:
     st.subheader("Document 2")
     st.text_area("Document 2 Text", value=doc2_text, height=300)
 
+    # Normalize paragraphs
+    paragraphs1 = normalize_paragraphs(doc1_text)
+    paragraphs2 = normalize_paragraphs(doc2_text)
+
     # Show differences in a table format
-    diff_table = find_differences_table(doc1_text, doc2_text)
+    diff_table = find_differences_table(paragraphs1, paragraphs2)
     st.subheader("Differences")
     st.write(diff_table)
 
