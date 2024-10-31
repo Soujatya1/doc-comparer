@@ -66,7 +66,7 @@ if uploaded_file1 and uploaded_file2:
     st.text_area("Document 2 Text", value=doc2_text, height=300)
 
     # Show differences in a table format
-    diff_table = find_differences_table(doc1_text, doc2_text)
+    diff_table = find_differences_sequence(doc1_text, doc2_text)
     st.subheader("Differences")
     st.write(diff_table)
 
