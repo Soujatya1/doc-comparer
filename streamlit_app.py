@@ -13,6 +13,7 @@ def read_pdf(file):
     return text
 
 # Function to find differences and format them in a tabular format
+# Function to find differences and format them in a tabular format, focusing only on textual content changes
 def find_differences_table(text1, text2):
     diff = difflib.unified_diff(
         text1.splitlines(),
@@ -22,14 +23,14 @@ def find_differences_table(text1, text2):
 
     differences = []
     for line in diff:
+        # Capture only meaningful content additions or deletions, excluding structural markers
         if line.startswith('+') and not line.startswith('+++'):
             differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
             differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
-        elif line.startswith('@'):
-            differences.append({"Document": "Context", "Change Type": "Context", "Text": line.strip()})
 
     return pd.DataFrame(differences)
+
 
 # Function to summarize differences using an LLM
 def summarize_differences(diff_text):
