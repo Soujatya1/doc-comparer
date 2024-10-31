@@ -8,8 +8,9 @@ from langchain.text_splitter import CharacterTextSplitter
 # Function to extract text from PDF using pdfplumber
 def extract_text_from_pdf(pdf_file):
     text = ""
-    # Use pdfplumber directly with the UploadedFile object
-    with pdfplumber.open(pdf_file) as pdf:
+    # Read the file bytes into a BytesIO buffer
+    pdf_buffer = io.BytesIO(pdf_file.read())
+    with pdfplumber.open(pdf_buffer) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
             if page_text:  # Only add text if it's not None
