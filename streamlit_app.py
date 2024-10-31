@@ -2,8 +2,6 @@ import streamlit as st
 import difflib
 import pdfplumber
 import pandas as pd
-from langchain_groq import ChatGroq
-import re
 
 # Function to read PDF text
 def read_pdf(file):
@@ -11,26 +9,21 @@ def read_pdf(file):
         text = ""
         for page in pdf.pages:
             text += page.extract_text() + "\n"
-    return text
+    return text.strip()  # Remove trailing whitespace
 
-# Function to normalize text by splitting into words and removing unwanted characters
-def normalize_text(text):
-    # Remove unwanted characters and normalize spaces
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    words = text.split()  # Split by whitespace
-    return [word.lower() for word in words]  # Normalize to lowercase
-
-# Function to find differences and format them in a tabular format, focusing solely on text additions and deletions
+# Function to find differences and format them in a tabular format
 def find_differences_table(text1, text2):
-    # Normalize the entire texts into lists of words
-    normalized_text1 = normalize_text(text1)
-    normalized_text2 = normalize_text(text2)
+    # Split the texts into lines for comparison
+    lines1 = text1.splitlines()
+    lines2 = text2.splitlines()
 
-    # Use unified diff to capture only content additions/deletions
+    # Use unified diff to capture content differences
     diff = difflib.unified_diff(
-        normalized_text1,
-        normalized_text2,
-        lineterm=''
+        lines1,
+        lines2,
+        lineterm='',
+        fromfile='Document 1',
+        tofile='Document 2'
     )
 
     differences = []
@@ -46,8 +39,6 @@ def find_differences_table(text1, text2):
                 differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
 
     return pd.DataFrame(differences)
-
-
 
 # Streamlit app
 st.title("Document Comparison Bot")
