@@ -15,8 +15,6 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
     
-nltk.download('punkt')
-
 # Function to clean and normalize each sentence, removing bullet points and extra spaces
 def preprocess_sentence(sentence):
     # Remove common bullet points or symbols at the beginning of each sentence
