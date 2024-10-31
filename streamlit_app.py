@@ -21,27 +21,29 @@ def normalize_text(text):
     return [word.lower() for word in words]  # Normalize to lowercase
 
 # Function to find differences and format them in a tabular format, focusing solely on text additions and deletions
-from gensim.summarization import summarize
+def find_differences_table(text1, text2):
+    # Normalize the entire texts into lists of words
+    normalized_text1 = normalize_text(text1)
+    normalized_text2 = normalize_text(text2)
 
-def extract_key_sentences(text):
-    try:
-        return summarize(text, ratio=0.1).split('\n')  # Adjust ratio as needed
-    except ValueError:
-        return []  # Handle cases where summarization is not possible
-
-def find_key_differences(text1, text2):
-    key_sentences1 = extract_key_sentences(text1)
-    key_sentences2 = extract_key_sentences(text2)
+    # Use unified diff to capture only content additions/deletions
+    diff = difflib.unified_diff(
+        normalized_text1,
+        normalized_text2,
+        lineterm=''
+    )
 
     differences = []
-    # Compare key sentences for additions and deletions
-    for sentence in key_sentences1:
-        if sentence not in key_sentences2:
-            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": sentence})
-    
-    for sentence in key_sentences2:
-        if sentence not in key_sentences1:
-            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": sentence})
+    for line in diff:
+        # Capture only meaningful content additions or deletions
+        if line.startswith('+') and not line.startswith('+++'):
+            changed_part = line[1:].strip()
+            if changed_part:  # Only consider non-empty additions
+                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
+        elif line.startswith('-') and not line.startswith('---'):
+            changed_part = line[1:].strip()
+            if changed_part:  # Only consider non-empty deletions
+                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
 
     return pd.DataFrame(differences)
 
@@ -70,7 +72,7 @@ if uploaded_file1 and uploaded_file2:
     st.text_area("Document 2 Text", value=doc2_text, height=300)
 
     # Show differences in a table format
-    diff_table = find_differences_sequence(doc1_text, doc2_text)
+    diff_table = find_differences_table(doc1_text, doc2_text)
     st.subheader("Differences")
     st.write(diff_table)
 
