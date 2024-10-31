@@ -27,16 +27,21 @@ def find_differences_table(text1, text2):
     )
 
     differences = []
+    addition_found = False  # Flag to track if we've found an addition to Document 1
+    deletion_found = False  # Flag to track if we've found a deletion from Document 2
+
     for line in diff:
         # Capture only meaningful content additions or deletions
         if line.startswith('+') and not line.startswith('+++'):
             changed_part = line[1:].strip()
-            if changed_part:  # Only consider non-empty additions
+            if changed_part and not addition_found:  # Only consider non-empty additions
                 differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
+                addition_found = True  # Set flag to True after finding the first addition
         elif line.startswith('-') and not line.startswith('---'):
             changed_part = line[1:].strip()
-            if changed_part:  # Only consider non-empty deletions
+            if changed_part and not deletion_found:  # Only consider non-empty deletions
                 differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
+                deletion_found = True  # Set flag to True after finding the first deletion
 
     return pd.DataFrame(differences)
 
