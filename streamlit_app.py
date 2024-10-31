@@ -15,17 +15,14 @@ def read_pdf(file):
 
 def preprocess_line(line):
     # Remove common bullet points or symbols at the beginning of each line
-    line = re.sub(r'^[\s•*\-]+', '', line)  # Place '-' at the end or escape it to avoid issues
-    # Normalize whitespace within the line
-    line = re.sub(r'\s+', ' ', line).strip()
-    return line
+    line = re.sub(r'^[\s•*\-]+', '', line)  # Remove leading bullet points
+    # Normalize whitespace within the line but keep significant formatting intact
+    return re.sub(r'\s+', ' ', line).strip()
 
 # Function to normalize each document and return a list of normalized lines
 def normalize_lines(text):
     lines = text.splitlines()
-    normalized_lines = []
-    for line in lines:
-        normalized_lines.extend(preprocess_line(line).split('. '))  # Split by sentences for more granularity
+    normalized_lines = [preprocess_line(line) for line in lines]
     return [line for line in normalized_lines if line]  # Remove empty lines
 
 # Function to find differences and format them in a tabular format, focusing on meaningful content changes
@@ -45,13 +42,15 @@ def find_differences_table(text1, text2):
     for line in diff:
         # Capture only meaningful content additions or deletions, ignoring structural markers
         if line.startswith('+') and not line.startswith('+++'):
-            # Extract the differing portion
             changed_part = line[1:].strip()
-            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
+            # Ensure we only capture significant changes
+            if changed_part and not changed_part in normalized_text1:
+                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
         elif line.startswith('-') and not line.startswith('---'):
-            # Extract the differing portion
             changed_part = line[1:].strip()
-            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
+            # Ensure we only capture significant changes
+            if changed_part and not changed_part in normalized_text2:
+                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
 
     return pd.DataFrame(differences)
 
