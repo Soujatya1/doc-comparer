@@ -1,58 +1,66 @@
 import streamlit as st
-import pandas as pd
 from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_groq import ChatGroq
+from langchain.prompts import PromptTemplate
+from langchain.text_splitter import CharacterTextSplitter
 
-# Initialize embeddings and document databases
-embeddings = HuggingFaceEmbeddings()
-docsearch_1 = Chroma(persist_directory="path/to/docset1", embedding_function=embeddings)
-docsearch_2 = Chroma(persist_directory="path/to/docset2", embedding_function=embeddings)
+# Step 1: Load and Split Documents
+def load_and_split_document(content):
+    # Split into sections or paragraphs
+    text_splitter = CharacterTextSplitter(separator="\n\n", chunk_size=500)
+    return text_splitter.split_text(content)
 
-# Function to retrieve documents based on the query
-def retrieve_documents(query):
-    response_1 = docsearch_1.similarity_search(query)
-    response_2 = docsearch_2.similarity_search(query)
-    return response_1, response_2
+# Step 2: Generate Embeddings for Comparison (optional)
+def generate_embeddings(texts):
+    embeddings = HuggingFaceEmbeddings()
+    return [embeddings.embed_text(text) for text in texts]
 
-# Function to extract unique or differing content from each document set
-def extract_differences(response_1, response_2):
-    doc_set_1_texts = [doc.page_content for doc in response_1]
-    doc_set_2_texts = [doc.page_content for doc in response_2]
-
+# Step 3: Compare Documents Using LLM
+def compare_documents(doc1_sections, doc2_sections, llm):
+    prompt_template = """
+    Compare the following sections from two documents and provide a summary of the differences:
+    Document 1: {doc1_section}
+    Document 2: {doc2_section}
+    Differences:
+    """
+    prompt = PromptTemplate.from_template(prompt_template)
+    
     differences = []
-    for idx, (text1, text2) in enumerate(zip(doc_set_1_texts, doc_set_2_texts)):
-        if text1 != text2:
-            differences.append({
-                "Doc Set 1 Content": text1 if text1 else "Not Available",
-                "Doc Set 2 Content": text2 if text2 else "Not Available"
-            })
+    for sec1, sec2 in zip(doc1_sections, doc2_sections):
+        comparison_prompt = prompt.format(doc1_section=sec1, doc2_section=sec2)
+        response = llm(comparison_prompt)
+        differences.append(response)
     
     return differences
 
-# Streamlit app UI
-st.title("Knowledge Management Chatbot")
-query = st.text_input("Enter your query:")
+# Streamlit Application
+st.title("Document Comparison Tool")
+st.write("Upload two documents to compare their content differences.")
 
-if st.button("Retrieve"):
-    if query:
-        response_1, response_2 = retrieve_documents(query)
+# File Upload
+doc1 = st.file_uploader("Upload Document 1", type=["txt", "pdf"])
+doc2 = st.file_uploader("Upload Document 2", type=["txt", "pdf"])
 
-        # Display the retrieved content for each document set
-        st.write("### Retrieved Content from Document Set 1")
-        for doc in response_1:
-            st.write(doc.page_content)
+# Trigger Comparison
+if doc1 and doc2:
+    # Load Document Content
+    doc1_content = doc1.read().decode("utf-8")
+    doc2_content = doc2.read().decode("utf-8")
+    
+    # Split Documents into Sections
+    doc1_sections = load_and_split_document(doc1_content)
+    doc2_sections = load_and_split_document(doc2_content)
 
-        st.write("### Retrieved Content from Document Set 2")
-        for doc in response_2:
-            st.write(doc.page_content)
+    # Initialize LLM
+    llm = ChatGroq(groq_api_key="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", model_name="Llama3-70b-8192")
+    
+    # Compare Documents
+    differences = compare_documents(doc1_sections, doc2_sections, llm)
 
-        # Display differences in tabular format if they exist
-        differences = extract_differences(response_1, response_2)
-        if differences:
-            st.write("### Differences in Retrieved Content Between Document Sets")
-            differences_df = pd.DataFrame(differences)
-            st.table(differences_df)
-        else:
-            st.write("No significant differences found between Document Set 1 and Document Set 2.")
-    else:
-        st.write("Please enter a query to retrieve documents.")
+    # Display Differences
+    st.write("### Differences between the Documents:")
+    for idx, diff in enumerate(differences):
+        st.write(f"**Difference in Section {idx+1}:**")
+        st.write(diff)
+else:
+    st.write("Please upload both documents to proceed with the comparison.")
