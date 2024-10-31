@@ -13,15 +13,18 @@ def read_pdf(file):
             text += page.extract_text() + "\n"
     return text
 
-# Function to normalize lines without altering text significantly
-def normalize_lines(text):
-    return [line.strip() for line in text.splitlines() if line.strip()]  # Keep non-empty lines
+# Function to normalize text by splitting into words and removing unwanted characters
+def normalize_text(text):
+    # Remove unwanted characters and normalize spaces
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    words = text.split()  # Split by whitespace
+    return [word.lower() for word in words]  # Normalize to lowercase
 
 # Function to find differences and format them in a tabular format, focusing solely on text additions and deletions
 def find_differences_table(text1, text2):
-    # Normalize each line of both texts
-    normalized_text1 = normalize_lines(text1)
-    normalized_text2 = normalize_lines(text2)
+    # Normalize the entire texts into lists of words
+    normalized_text1 = normalize_text(text1)
+    normalized_text2 = normalize_text(text2)
 
     # Use unified diff to capture only content additions/deletions
     diff = difflib.unified_diff(
