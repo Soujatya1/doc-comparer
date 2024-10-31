@@ -8,6 +8,8 @@ import re
 # Initialize ChatGroq model
 model = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
 
+st.write(dir(model))
+
 # Function to read PDF text
 def read_pdf(file):
     with pdfplumber.open(file) as pdf:
