@@ -1,23 +1,23 @@
 import streamlit as st
+import pdfplumber
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
-import pdfplumber
 
+# Function to extract text from PDF using pdfplumber
 def extract_text_from_pdf(pdf_file):
     text = ""
     # Use pdfplumber directly with the UploadedFile object
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
-            if page_text:
+            if page_text:  # Only add text if it's not None
                 text += page_text + "\n"
     return text
 
 # Step 1: Load and Split Documents
 def load_and_split_document(content):
-    # Split into sections or paragraphs
     text_splitter = CharacterTextSplitter(separator="\n\n", chunk_size=500)
     return text_splitter.split_text(content)
 
@@ -45,8 +45,8 @@ def compare_documents(doc1_sections, doc2_sections, llm):
     return differences
 
 # Streamlit Application
-st.title("Document Comparison Tool")
-st.write("Upload two documents to compare their content differences.")
+st.title("PDF Document Comparison Tool")
+st.write("Upload two PDF documents to compare their content differences.")
 
 # File Upload
 doc1 = st.file_uploader("Upload Document 1 (PDF)", type="pdf")
