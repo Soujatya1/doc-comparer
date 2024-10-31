@@ -5,17 +5,20 @@ from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
 import io
+import PyPDF2
 
 # Function to extract text from PDF using pdfplumber
 def extract_text_from_pdf(pdf_file):
     text = ""
     # Read the file bytes into a BytesIO buffer
     pdf_buffer = io.BytesIO(pdf_file.read())
-    with pdfplumber.open(pdf_buffer) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:  # Only add text if it's not None
-                text += page_text + "\n"
+    # Initialize PDF reader
+    pdf_reader = PyPDF2.PdfReader(pdf_buffer)
+    # Extract text from each page
+    for page in pdf_reader.pages:
+        page_text = page.extract_text()
+        if page_text:  # Only add text if it's not None
+            text += page_text + "\n"
     return text
 
 # Step 1: Load and Split Documents
