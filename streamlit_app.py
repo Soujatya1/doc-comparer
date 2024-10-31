@@ -4,7 +4,6 @@ import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
 import re
-from difflib import SequenceMatcher
 
 # Function to read PDF text
 def read_pdf(file):
@@ -22,22 +21,27 @@ def normalize_text(text):
     return [word.lower() for word in words]  # Normalize to lowercase
 
 # Function to find differences and format them in a tabular format, focusing solely on text additions and deletions
-def find_differences_sequence(text1, text2):
-    # Normalize text into sentences
-    sentences1 = normalize_text(text1)
-    sentences2 = normalize_text(text2)
+from gensim.summarization import summarize
 
-    # Create a SequenceMatcher instance
-    matcher = SequenceMatcher(None, sentences1, sentences2)
-    
+def extract_key_sentences(text):
+    try:
+        return summarize(text, ratio=0.1).split('\n')  # Adjust ratio as needed
+    except ValueError:
+        return []  # Handle cases where summarization is not possible
+
+def find_key_differences(text1, text2):
+    key_sentences1 = extract_key_sentences(text1)
+    key_sentences2 = extract_key_sentences(text2)
+
     differences = []
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == 'insert':
-            for sentence in sentences2[j1:j2]:
-                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": sentence})
-        elif tag == 'delete':
-            for sentence in sentences1[i1:i2]:
-                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": sentence})
+    # Compare key sentences for additions and deletions
+    for sentence in key_sentences1:
+        if sentence not in key_sentences2:
+            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": sentence})
+    
+    for sentence in key_sentences2:
+        if sentence not in key_sentences1:
+            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": sentence})
 
     return pd.DataFrame(differences)
 
