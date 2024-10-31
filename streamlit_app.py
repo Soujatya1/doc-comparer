@@ -26,31 +26,24 @@ def find_differences_table(text1, text2):
     normalized_text1 = normalize_text(text1)
     normalized_text2 = normalize_text(text2)
 
-    # Use ndiff to capture only content additions/deletions
-    diff = difflib.ndiff(normalized_text1, normalized_text2)
+    # Use unified diff to capture only content additions/deletions
+    diff = difflib.unified_diff(
+        normalized_text1,
+        normalized_text2,
+        lineterm=''
+    )
 
     differences = []
-    current_addition = []
-    current_deletion = []
-
     for line in diff:
-        if line.startswith('+ '):  # Addition
-            current_addition.append(line[2:])
-        elif line.startswith('- '):  # Deletion
-            current_deletion.append(line[2:])
-        else:  # Neutral line (no change)
-            if current_addition:
-                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": ' '.join(current_addition)})
-                current_addition = []
-            if current_deletion:
-                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": ' '.join(current_deletion)})
-                current_deletion = []
-
-    # Check for any remaining additions or deletions at the end
-    if current_addition:
-        differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": ' '.join(current_addition)})
-    if current_deletion:
-        differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": ' '.join(current_deletion)})
+        # Capture only meaningful content additions or deletions
+        if line.startswith('+') and not line.startswith('+++'):
+            changed_part = line[1:].strip()
+            if changed_part:  # Only consider non-empty additions
+                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
+        elif line.startswith('-') and not line.startswith('---'):
+            changed_part = line[1:].strip()
+            if changed_part:  # Only consider non-empty deletions
+                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
 
     return pd.DataFrame(differences)
 
