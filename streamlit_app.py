@@ -9,20 +9,23 @@ from langchain.text_splitter import CharacterTextSplitter
 # Function to extract text from PDF using PyPDF2
 def extract_text_from_pdf(pdf_file):
     text = ""
-    # Convert the uploaded file to bytes
-    pdf_data = pdf_file.read()
-    pdf_buffer = io.BytesIO(pdf_data)
-    
+    # Read file content as bytes and convert to BytesIO
     try:
+        pdf_bytes = pdf_file.read()
+        pdf_buffer = io.BytesIO(pdf_bytes)
+
+        # Use PdfReader to read from the BytesIO object
         pdf_reader = PyPDF2.PdfReader(pdf_buffer)
         for page in pdf_reader.pages:
             page_text = page.extract_text()
             if page_text:
                 text += page_text + "\n"
+                
     except Exception as e:
-        st.error(f"Error reading PDF: {e}")
+        st.error(f"Error reading PDF file: {e}")
     
     return text
+    
 
 # Step 1: Load and Split Documents
 def load_and_split_document(content):
