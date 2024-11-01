@@ -49,9 +49,20 @@ if uploaded_files:
                     # Use ndiff to find differences
                     diff = list(ndiff(doc1_content, doc2_content))
 
-                    # Filter and format the differences
-                    added = [line[2:] for line in diff if line.startswith('+ ') and not line.startswith('+ +')]
-                    removed = [line[2:] for line in diff if line.startswith('- ')]
+                    # Filter and format the differences, ignoring whitespace changes
+                    added = []
+                    removed = []
+                    for line in diff:
+                        if line.startswith('+ '):
+                            clean_line = line[2:].strip()
+                            # Only add if it's not empty or just whitespace
+                            if clean_line and clean_line not in [l.strip() for l in doc1_content]:
+                                added.append(clean_line)
+                        elif line.startswith('- '):
+                            clean_line = line[2:].strip()
+                            # Only add if it's not empty or just whitespace
+                            if clean_line and clean_line not in [l.strip() for l in doc2_content]:
+                                removed.append(clean_line)
 
                     if added or removed:
                         results.append(f"**Differences between {documents[i].metadata['name']} and {documents[j].metadata['name']}:**")
