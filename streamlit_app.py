@@ -6,7 +6,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langchain.schema import Document
-from difflib import ndiff
 
 # Initialize ChatGroq model
 groq_api_key = "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"
@@ -41,43 +40,21 @@ if uploaded_files:
             st.warning("Please upload at least two documents to compare.")
         else:
             results = []
-            for i in range(len(documents)):
-                for j in range(i + 1, len(documents)):
-                    doc1_content = documents[i].page_content.splitlines()
-                    doc2_content = documents[j].page_content.splitlines()
+            doc_contents = [doc.page_content for doc in documents]
+            
+            # Use LLM to analyze the differences
+            prompt = (
+                "Compare the following two documents and highlight only the significant textual differences, "
+                "ignoring variations due to whitespace or formatting. "
+                "Here are the texts:\n\n"
+                f"Document 1:\n{doc_contents[0]}\n\n"
+                f"Document 2:\n{doc_contents[1]}"
+            )
 
-                    # Use ndiff to find differences
-                    diff = list(ndiff(doc1_content, doc2_content))
-
-                    # Filter and format the differences, ignoring whitespace changes
-                    added = []
-                    removed = []
-                    for line in diff:
-                        if line.startswith('+ '):
-                            clean_line = line[2:].strip()
-                            # Only add if it's not empty or just whitespace
-                            if clean_line and clean_line not in [l.strip() for l in doc1_content]:
-                                added.append(clean_line)
-                        elif line.startswith('- '):
-                            clean_line = line[2:].strip()
-                            # Only add if it's not empty or just whitespace
-                            if clean_line and clean_line not in [l.strip() for l in doc2_content]:
-                                removed.append(clean_line)
-
-                    if added or removed:
-                        results.append(f"**Differences between {documents[i].metadata['name']} and {documents[j].metadata['name']}:**")
-                        
-                        if removed:
-                            results.append("### Removed Lines:")
-                            for line in removed:
-                                results.append(f"- {line}")
-
-                        if added:
-                            results.append("### Added Lines:")
-                            for line in added:
-                                results.append(f"- {line}")
-                    else:
-                        results.append(f"No differences found between {documents[i].metadata['name']} and {documents[j].metadata['name']}.")
+            # Get the LLM response
+            llm_response = model(prompt)
+            results.append(f"**Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:**")
+            results.append(llm_response)
 
             # Display the results
             st.subheader("Comparative Results")
