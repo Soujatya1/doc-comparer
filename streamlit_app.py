@@ -64,7 +64,8 @@ st.title("Document Comparison Bot")
 uploaded_file1 = st.file_uploader("Upload Document 1 (PDF only)", type=["pdf"])
 uploaded_file2 = st.file_uploader("Upload Document 2 (PDF only)", type=["pdf"])
 
-if uploaded_file1 and uploaded_file2:
+# Compare Documents button
+if st.button("Compare Documents") and uploaded_file1 and uploaded_file2:
     # Load the documents
     doc1_text = read_pdf(uploaded_file1)
     doc2_text = read_pdf(uploaded_file2)
