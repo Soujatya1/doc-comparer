@@ -1,18 +1,11 @@
 import streamlit as st
 import pdfplumber
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langchain.schema import Document
 
 # Initialize ChatGroq model
 groq_api_key = "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"
 model = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
-
-# Initialize HuggingFace Embeddings
-embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # Create Streamlit App
 st.title("Document Comparer")
@@ -42,19 +35,22 @@ if uploaded_files:
             results = []
             doc_contents = [doc.page_content for doc in documents]
             
-            # Use LLM to analyze the differences
-            prompt = (
-                "Compare the following two documents and highlight only the significant textual differences, "
-                "ignoring variations due to whitespace or formatting. "
-                "Here are the texts:\n\n"
-                f"Document 1:\n{doc_contents[0]}\n\n"
-                f"Document 2:\n{doc_contents[1]}"
+            # Create a formatted input for the LLM
+            formatted_input = (
+                "Please compare the following two documents and highlight only the significant textual differences, "
+                "ignoring variations due to whitespace or formatting.\n\n"
+                f"Document 1: {documents[0].metadata['name']}\n{doc_contents[0]}\n\n"
+                f"Document 2: {documents[1].metadata['name']}\n{doc_contents[1]}"
             )
 
-            # Get the LLM response
-            llm_response = model(prompt)
-            results.append(f"**Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:**")
-            results.append(llm_response)
+            try:
+                # Get the LLM response
+                llm_response = model(formatted_input)
+                results.append(f"**Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:**")
+                results.append(llm_response)
+
+            except Exception as e:
+                st.error(f"Error processing LLM: {str(e)}")
 
             # Display the results
             st.subheader("Comparative Results")
