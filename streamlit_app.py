@@ -58,7 +58,8 @@ def summarize_differences(diff_text):
     return response
 
 # Streamlit app
-st.title("Document Comparison Bot")
+st.title("Document Comparer!")
+st.subheader("Find the Differences...")
 
 # Upload PDF document files
 uploaded_file1 = st.file_uploader("Upload Document 1 (PDF only)", type=["pdf"])
