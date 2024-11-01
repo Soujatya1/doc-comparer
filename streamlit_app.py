@@ -79,12 +79,3 @@ if st.button("Compare Documents") and uploaded_file1 and uploaded_file2:
     diff_table = find_differences_table(doc1_text, doc2_text, doc1_name, doc2_name)
     st.subheader("Differences")
     st.write(diff_table)
-
-    # Download differences as CSV
-    csv = diff_table.to_csv(index=False)  # Convert DataFrame to CSV
-    st.download_button(
-        label="Download Differences as CSV",
-        data=csv,
-        file_name='differences.csv',
-        mime='text/csv'
-    )
