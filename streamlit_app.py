@@ -5,7 +5,8 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
-from langchain.schema import Document  # Import Document class
+from langchain.schema import Document
+from difflib import unified_diff
 
 # Initialize ChatGroq model
 groq_api_key = "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"
@@ -34,31 +35,36 @@ if uploaded_files:
             # Wrap the extracted text in a LangChain Document
             documents.append(Document(page_content=doc_text, metadata={"name": uploaded_file.name}))
 
-    # Split documents into chunks for better processing
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
-    split_documents = text_splitter.split_documents(documents)  # Split directly on the Document list
-    
-    # Create a FAISS vector store
-    vector_store = FAISS.from_documents(split_documents, embedding_model)
-
-    # Set up the RetrievalQA chain
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=model,
-        chain_type="stuff",
-        retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
-    )
-
-    # Comparing the documents
+    # Compare documents
     if st.button("Compare Documents"):
-        comparisons = []
-        for doc in documents:
-            response = qa_chain.run(doc.page_content)  # Use the page_content attribute
-            comparisons.append(response)
+        if len(documents) < 2:
+            st.warning("Please upload at least two documents to compare.")
+        else:
+            # Compare each document with every other document
+            results = []
+            for i in range(len(documents)):
+                for j in range(i + 1, len(documents)):
+                    doc1_content = documents[i].page_content.splitlines(keepends=True)
+                    doc2_content = documents[j].page_content.splitlines(keepends=True)
 
-        # Display the comparisons
-        st.subheader("Comparative Results")
-        for i, comparison in enumerate(comparisons):
-            st.write(f"**Comparison for {documents[i].metadata['name']}:**")
-            st.write(comparison)
+                    # Use difflib to find differences
+                    diff = list(unified_diff(doc1_content, doc2_content, 
+                                              fromfile=documents[i].metadata['name'], 
+                                              tofile=documents[j].metadata['name'], 
+                                              lineterm=''))
+
+                    # Format the differences for display
+                    if diff:
+                        results.append(f"**Differences between {documents[i].metadata['name']} and {documents[j].metadata['name']}:**")
+                        results.append("```diff")
+                        results.extend(diff)
+                        results.append("```")
+                    else:
+                        results.append(f"No differences found between {documents[i].metadata['name']} and {documents[j].metadata['name']}.")
+
+            # Display the results
+            st.subheader("Comparative Results")
+            for result in results:
+                st.write(result)
 
         st.success("Comparison completed!")
