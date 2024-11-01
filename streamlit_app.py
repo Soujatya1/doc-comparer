@@ -1,10 +1,10 @@
-
 import streamlit as st
 import difflib
 import pdfplumber
 import pandas as pd
 from langchain_groq import ChatGroq
 import re
+
 # Function to read PDF text
 def read_pdf(file):
     with pdfplumber.open(file) as pdf:
@@ -12,12 +12,12 @@ def read_pdf(file):
         for page in pdf.pages:
             text += page.extract_text() + "\n"
     return text
-    
+
 def preprocess_line(line):
     # Remove common bullet points or symbols at the beginning of each line
-    line = re.sub(r'^[\s•*\-]+', '', line)  # Place '-' at the end or escape it to avoid issues
-    # Normalize whitespace within the line
-    line = re.sub(r'\s+', ' ', line).strip()
+    line = re.sub(r'^[\s•*\-]+', '', line)
+    # Normalize whitespace within the line and convert to lowercase for uniformity
+    line = re.sub(r'\s+', ' ', line).strip().lower()  # Normalize spaces and make lowercase
     return line
 
 # Function to preprocess each document and return a list of normalized lines
@@ -29,7 +29,7 @@ def find_differences_table(text1, text2):
     # Normalize each line of both texts
     normalized_text1 = normalize_lines(text1)
     normalized_text2 = normalize_lines(text2)
-    
+
     # Use unified diff to capture only content additions/deletions
     diff = difflib.unified_diff(
         normalized_text1,
@@ -41,12 +41,15 @@ def find_differences_table(text1, text2):
     for line in diff:
         # Capture only meaningful content additions or deletions, ignoring structural markers
         if line.startswith('+') and not line.startswith('+++'):
-            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
+            # Check if the addition is not just whitespace or line change
+            if line[1:].strip():  # Only add if there is meaningful text
+                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
-            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
+            # Check if the deletion is not just whitespace or line change
+            if line[1:].strip():  # Only add if there is meaningful text
+                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
 
     return pd.DataFrame(differences)
-
 
 # Function to summarize differences using an LLM
 def summarize_differences(diff_text):
