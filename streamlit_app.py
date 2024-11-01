@@ -40,20 +40,19 @@ if uploaded_files:
             st.warning("Please upload at least two documents to compare.")
         else:
             # Create FAISS vector store
-            faiss_index = faiss.IndexFlatL2(embedding_model.output_dim)
             embeddings = []
-
-            # Embed document contents and store them in FAISS
             for doc in documents:
-                embedding = embedding_model.embed([doc.page_content])  # Embed document content
-                embeddings.append(embedding[0])  # Store the first (and only) embedding
-                faiss_index.add(np.array([embedding[0]], dtype=np.float32))  # Add embedding to FAISS
+                embedding = embedding_model.embed([doc.page_content])[0]  # Embed document content
+                embeddings.append(embedding)  # Store the embedding
+            
+            # Convert embeddings to numpy array for FAISS
+            embedding_array = np.array(embeddings, dtype=np.float32)
 
-            # Perform a search to compare the embeddings
-            results = []
-            comparison_results = []
+            # Create a FAISS index for the embeddings
+            faiss_index = faiss.IndexFlatL2(embedding_array.shape[1])
+            faiss_index.add(embedding_array)  # Add all embeddings to the FAISS index
 
-            # Generate input for the LLM to compare documents based on their embeddings
+            # Prepare input for LLM
             formatted_input = (
                 "Please compare the following two documents and highlight only the significant textual differences, "
                 "ignoring variations due to whitespace or formatting.\n\n"
@@ -64,15 +63,10 @@ if uploaded_files:
             # Get the LLM response
             try:
                 llm_response = model(formatted_input)
-                comparison_results.append(f"**Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:**")
-                comparison_results.append(llm_response)
+                st.subheader(f"Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:")
+                st.write(llm_response)
 
             except Exception as e:
                 st.error(f"Error processing LLM: {str(e)}")
-
-            # Display the results
-            st.subheader("Comparative Results")
-            for result in comparison_results:
-                st.write(result)
 
         st.success("Comparison completed!")
