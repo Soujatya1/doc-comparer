@@ -1,69 +1,85 @@
+
 import streamlit as st
+import difflib
 import pdfplumber
-import faiss
-import numpy as np
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+import pandas as pd
 from langchain_groq import ChatGroq
-from langchain.schema import Document
-
-# Initialize ChatGroq model
-groq_api_key = "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"
-model = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
-
-# Initialize HuggingFace Embeddings
-embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# Create Streamlit App
-st.title("Document Comparer with FAISS")
-
-# Upload documents
-uploaded_files = st.file_uploader("Choose PDF files (contracts) to compare", type=["pdf"], accept_multiple_files=True)
-
-if uploaded_files:
-    documents = []
+import re
+# Function to read PDF text
+def read_pdf(file):
+    with pdfplumber.open(file) as pdf:
+        text = ""
+        for page in pdf.pages:
+            text += page.extract_text() + "\n"
+    return text
     
-    # Load and process the documents
-    for uploaded_file in uploaded_files:
-        with pdfplumber.open(uploaded_file) as pdf_document:
-            doc_text = ""
-            for page in pdf_document.pages:
-                page_text = page.extract_text() or ""  # Extract text from each page
-                doc_text += page_text
-            
-            # Wrap the extracted text in a LangChain Document
-            documents.append(Document(page_content=doc_text, metadata={"name": uploaded_file.name}))
+def preprocess_line(line):
+    # Remove common bullet points or symbols at the beginning of each line
+    line = re.sub(r'^[\s•*\-]+', '', line)  # Place '-' at the end or escape it to avoid issues
+    # Normalize whitespace within the line
+    line = re.sub(r'\s+', ' ', line).strip()
+    return line
 
-    # Compare documents
-    if st.button("Compare Documents"):
-        if len(documents) < 2:
-            st.warning("Please upload at least two documents to compare.")
-        else:
-            # Create FAISS vector store
-            embeddings = embedding_model.embed_documents([doc.page_content for doc in documents])  # Use embed_documents method
+# Function to preprocess each document and return a list of normalized lines
+def normalize_lines(text):
+    return [preprocess_line(line) for line in text.splitlines()]
 
-            # Convert embeddings to numpy array for FAISS
-            embedding_array = np.array(embeddings, dtype=np.float32)
+# Function to find differences and format them in a tabular format, focusing on meaningful content changes
+def find_differences_table(text1, text2):
+    # Normalize each line of both texts
+    normalized_text1 = normalize_lines(text1)
+    normalized_text2 = normalize_lines(text2)
+    
+    # Use unified diff to capture only content additions/deletions
+    diff = difflib.unified_diff(
+        normalized_text1,
+        normalized_text2,
+        lineterm=''
+    )
 
-            # Create a FAISS index for the embeddings
-            faiss_index = faiss.IndexFlatL2(embedding_array.shape[1])
-            faiss_index.add(embedding_array)  # Add all embeddings to the FAISS index
+    differences = []
+    for line in diff:
+        # Capture only meaningful content additions or deletions, ignoring structural markers
+        if line.startswith('+') and not line.startswith('+++'):
+            differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
+        elif line.startswith('-') and not line.startswith('---'):
+            differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
 
-            # Prepare input for LLM
-            formatted_input = (
-                "Please compare the following two documents and highlight only the significant textual differences, "
-                "ignoring variations due to whitespace or formatting.\n\n"
-                f"Document 1: {documents[0].metadata['name']}\n{documents[0].page_content}\n\n"
-                f"Document 2: {documents[1].metadata['name']}\n{documents[1].page_content}"
-            )
+    return pd.DataFrame(differences)
 
-            # Get the LLM response
-            try:
-                llm_response = model(formatted_input)
-                st.subheader(f"Differences between {documents[0].metadata['name']} and {documents[1].metadata['name']}:")
-                st.write(llm_response)
 
-            except Exception as e:
-                st.error(f"Error processing LLM: {str(e)}")
+# Function to summarize differences using an LLM
+def summarize_differences(diff_text):
+    model = ChatGroq(groq_api_key="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", model_name="Llama3-8b-8192")
+    response = model.generate(diff_text)
+    return response
 
-        st.success("Comparison completed!")
+# Streamlit app
+st.title("Document Comparison Bot")
+
+# Upload PDF document files
+uploaded_file1 = st.file_uploader("Upload Document 1 (PDF only)", type=["pdf"])
+uploaded_file2 = st.file_uploader("Upload Document 2 (PDF only)", type=["pdf"])
+
+if uploaded_file1 and uploaded_file2:
+    # Load the documents
+    doc1_text = read_pdf(uploaded_file1)
+    doc2_text = read_pdf(uploaded_file2)
+
+    st.subheader("Document 1")
+    st.text_area("Document 1 Text", value=doc1_text, height=300)
+
+    st.subheader("Document 2")
+    st.text_area("Document 2 Text", value=doc2_text, height=300)
+
+    # Show differences in a table format
+    diff_table = find_differences_table(doc1_text, doc2_text)
+    st.subheader("Differences")
+    st.write(diff_table)
+
+    # Summarize the differences using LLM
+    if st.button("Summarize Differences"):
+        diff_text = '\n'.join(diff_table["Text"].tolist())
+        summary = summarize_differences(diff_text)
+        st.subheader("Summary of Differences")
+        st.text(summary)
