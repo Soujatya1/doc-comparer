@@ -5,6 +5,7 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
+from langchain.schema import Document  # Import Document class
 
 # Initialize ChatGroq model
 groq_api_key = "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"
@@ -27,16 +28,18 @@ if uploaded_files:
         with pdfplumber.open(uploaded_file) as pdf_document:
             doc_text = ""
             for page in pdf_document.pages:
-                doc_text += page.extract_text() or ""  # Extract text from each page
-            documents.append({"content": doc_text, "name": uploaded_file.name})
+                page_text = page.extract_text() or ""  # Extract text from each page
+                doc_text += page_text
+            
+            # Wrap the extracted text in a LangChain Document
+            documents.append(Document(page_content=doc_text, metadata={"name": uploaded_file.name}))
 
     # Split documents into chunks for better processing
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
-    split_documents = [text_splitter.split_documents([doc["content"]]) for doc in documents]
+    split_documents = text_splitter.split_documents(documents)  # Split directly on the Document list
     
     # Create a FAISS vector store
-    all_chunks = [chunk for doc_chunks in split_documents for chunk in doc_chunks]
-    vector_store = FAISS.from_documents(all_chunks, embedding_model)
+    vector_store = FAISS.from_documents(split_documents, embedding_model)
 
     # Set up the RetrievalQA chain
     qa_chain = RetrievalQA.from_chain_type(
@@ -49,13 +52,13 @@ if uploaded_files:
     if st.button("Compare Documents"):
         comparisons = []
         for doc in documents:
-            response = qa_chain.run(doc["content"])
+            response = qa_chain.run(doc.page_content)  # Use the page_content attribute
             comparisons.append(response)
 
         # Display the comparisons
         st.subheader("Comparative Results")
         for i, comparison in enumerate(comparisons):
-            st.write(f"**Comparison for {documents[i]['name']}:**")
+            st.write(f"**Comparison for {documents[i].metadata['name']}:**")
             st.write(comparison)
 
         st.success("Comparison completed!")
