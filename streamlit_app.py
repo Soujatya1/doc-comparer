@@ -6,7 +6,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langchain.schema import Document
-from difflib import unified_diff
+from difflib import ndiff
 
 # Initialize ChatGroq model
 groq_api_key = "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"
@@ -40,25 +40,31 @@ if uploaded_files:
         if len(documents) < 2:
             st.warning("Please upload at least two documents to compare.")
         else:
-            # Compare each document with every other document
             results = []
             for i in range(len(documents)):
                 for j in range(i + 1, len(documents)):
-                    doc1_content = documents[i].page_content.splitlines(keepends=True)
-                    doc2_content = documents[j].page_content.splitlines(keepends=True)
+                    doc1_content = documents[i].page_content.splitlines()
+                    doc2_content = documents[j].page_content.splitlines()
 
-                    # Use difflib to find differences
-                    diff = list(unified_diff(doc1_content, doc2_content, 
-                                              fromfile=documents[i].metadata['name'], 
-                                              tofile=documents[j].metadata['name'], 
-                                              lineterm=''))
+                    # Use ndiff to find differences
+                    diff = list(ndiff(doc1_content, doc2_content))
 
-                    # Format the differences for display
-                    if diff:
+                    # Filter and format the differences
+                    added = [line[2:] for line in diff if line.startswith('+ ') and not line.startswith('+ +')]
+                    removed = [line[2:] for line in diff if line.startswith('- ')]
+
+                    if added or removed:
                         results.append(f"**Differences between {documents[i].metadata['name']} and {documents[j].metadata['name']}:**")
-                        results.append("```diff")
-                        results.extend(diff)
-                        results.append("```")
+                        
+                        if removed:
+                            results.append("### Removed Lines:")
+                            for line in removed:
+                                results.append(f"- {line}")
+
+                        if added:
+                            results.append("### Added Lines:")
+                            for line in added:
+                                results.append(f"- {line}")
                     else:
                         results.append(f"No differences found between {documents[i].metadata['name']} and {documents[j].metadata['name']}.")
 
