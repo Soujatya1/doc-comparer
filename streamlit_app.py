@@ -79,10 +79,3 @@ if uploaded_file1 and uploaded_file2:
     diff_table = find_differences_table(doc1_text, doc2_text)
     st.subheader("Differences")
     st.write(diff_table)
-
-    # Summarize the differences using LLM
-    if st.button("Summarize Differences"):
-        diff_text = '\n'.join(diff_table["Text"].tolist())
-        summary = summarize_differences(diff_text)
-        st.subheader("Summary of Differences")
-        st.text(summary)
