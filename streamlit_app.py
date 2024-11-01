@@ -1,77 +1,61 @@
 import streamlit as st
-import difflib
 import pdfplumber
-import pandas as pd
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain_groq import ChatGroq
 
-# Function to read PDF text
-def read_pdf(file):
-    with pdfplumber.open(file) as pdf:
-        text = ""
-        for page in pdf.pages:
-            text += page.extract_text() + "\n"
-    return text.strip()  # Remove trailing whitespace
+# Initialize ChatGroq model
+groq_api_key = "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"
+model = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
-# Function to normalize text by removing spaces
-def normalize_text(text):
-    return text.replace(" ", "").replace("\n", "").strip()  # Remove all spaces and newlines
+# Initialize HuggingFace Embeddings
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# Function to find differences and format them in a tabular format
-def find_differences_table(text1, text2):
-    # Normalize the texts by removing spaces for comparison
-    normalized_text1 = normalize_text(text1)
-    normalized_text2 = normalize_text(text2)
+# Create Streamlit App
+st.title("Document Comparer")
 
-    # Split the original texts into lines for context
-    lines1 = text1.splitlines()
-    lines2 = text2.splitlines()
+# Upload documents
+uploaded_files = st.file_uploader("Choose PDF files (contracts) to compare", type=["pdf"], accept_multiple_files=True)
 
-    # Use unified diff to capture content differences based on normalized texts
-    diff = difflib.unified_diff(
-        normalized_text1,
-        normalized_text2,
-        lineterm='',
-        fromfile='Document 1',
-        tofile='Document 2'
+if uploaded_files:
+    documents = []
+    
+    # Load and process the documents
+    for uploaded_file in uploaded_files:
+        with pdfplumber.open(uploaded_file) as pdf_document:
+            doc_text = ""
+            for page in pdf_document.pages:
+                doc_text += page.extract_text() or ""  # Extract text from each page
+            documents.append({"content": doc_text, "name": uploaded_file.name})
+
+    # Split documents into chunks for better processing
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
+    split_documents = [text_splitter.split_documents([doc["content"]]) for doc in documents]
+    
+    # Create a FAISS vector store
+    all_chunks = [chunk for doc_chunks in split_documents for chunk in doc_chunks]
+    vector_store = FAISS.from_documents(all_chunks, embedding_model)
+
+    # Set up the RetrievalQA chain
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=model,
+        chain_type="stuff",
+        retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
     )
 
-    differences = []
-    addition_found = False  # Flag to track if we've found an addition to Document 1
-    deletion_found = False  # Flag to track if we've found a deletion from Document 2
+    # Comparing the documents
+    if st.button("Compare Documents"):
+        comparisons = []
+        for doc in documents:
+            response = qa_chain.run(doc["content"])
+            comparisons.append(response)
 
-    for line in diff:
-        # Capture only meaningful content additions or deletions
-        if line.startswith('+') and not line.startswith('+++'):
-            changed_part = line[1:].strip()
-            if changed_part and not addition_found:  # Only consider non-empty additions
-                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": changed_part})
-                addition_found = True  # Set flag to True after finding the first addition
-        elif line.startswith('-') and not line.startswith('---'):
-            changed_part = line[1:].strip()
-            if changed_part and not deletion_found:  # Only consider non-empty deletions
-                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": changed_part})
-                deletion_found = True  # Set flag to True after finding the first deletion
+        # Display the comparisons
+        st.subheader("Comparative Results")
+        for i, comparison in enumerate(comparisons):
+            st.write(f"**Comparison for {documents[i]['name']}:**")
+            st.write(comparison)
 
-    return pd.DataFrame(differences)
-
-# Streamlit app
-st.title("Document Comparison Bot")
-
-# Upload PDF document files
-uploaded_file1 = st.file_uploader("Upload Document 1 (PDF only)", type=["pdf"])
-uploaded_file2 = st.file_uploader("Upload Document 2 (PDF only)", type=["pdf"])
-
-if uploaded_file1 and uploaded_file2:
-    # Load the documents
-    doc1_text = read_pdf(uploaded_file1)
-    doc2_text = read_pdf(uploaded_file2)
-
-    st.subheader("Document 1")
-    st.text_area("Document 1 Text", value=doc1_text, height=300)
-
-    st.subheader("Document 2")
-    st.text_area("Document 2 Text", value=doc2_text, height=300)
-
-    # Show differences in a table format
-    diff_table = find_differences_table(doc1_text, doc2_text)
-    st.subheader("Differences")
-    st.write(diff_table)
+        st.success("Comparison completed!")
