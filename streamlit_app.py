@@ -25,7 +25,7 @@ def normalize_lines(text):
     return [preprocess_line(line) for line in text.splitlines()]
 
 # Function to find differences and format them in a tabular format, focusing on meaningful content changes
-def find_differences_table(text1, text2):
+def find_differences_table(text1, text2, doc1_name, doc2_name):
     # Normalize each line of both texts
     normalized_text1 = normalize_lines(text1)
     normalized_text2 = normalize_lines(text2)
@@ -43,11 +43,11 @@ def find_differences_table(text1, text2):
         if line.startswith('+') and not line.startswith('+++'):
             # Check if the addition is not just whitespace or line change
             if line[1:].strip():  # Only add if there is meaningful text
-                differences.append({"Document": "Document 2", "Change Type": "Addition", "Text": line[1:].strip()})
+                differences.append({"Document": doc2_name, "Change Type": "Addition", "Text": line[1:].strip()})
         elif line.startswith('-') and not line.startswith('---'):
             # Check if the deletion is not just whitespace or line change
             if line[1:].strip():  # Only add if there is meaningful text
-                differences.append({"Document": "Document 1", "Change Type": "Deletion", "Text": line[1:].strip()})
+                differences.append({"Document": doc1_name, "Change Type": "Deletion", "Text": line[1:].strip()})
 
     return pd.DataFrame(differences)
 
@@ -71,7 +71,11 @@ if st.button("Compare Documents") and uploaded_file1 and uploaded_file2:
     doc1_text = read_pdf(uploaded_file1)
     doc2_text = read_pdf(uploaded_file2)
 
+    # Get document names
+    doc1_name = uploaded_file1.name
+    doc2_name = uploaded_file2.name
+
     # Show differences in a table format
-    diff_table = find_differences_table(doc1_text, doc2_text)
+    diff_table = find_differences_table(doc1_text, doc2_text, doc1_name, doc2_name)
     st.subheader("Differences")
     st.write(diff_table)
