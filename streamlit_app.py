@@ -40,11 +40,8 @@ if uploaded_files:
             st.warning("Please upload at least two documents to compare.")
         else:
             # Create FAISS vector store
-            embeddings = []
-            for doc in documents:
-                embedding = embedding_model.embed([doc.page_content])[0]  # Embed document content
-                embeddings.append(embedding)  # Store the embedding
-            
+            embeddings = embedding_model.embed_documents([doc.page_content for doc in documents])  # Use embed_documents method
+
             # Convert embeddings to numpy array for FAISS
             embedding_array = np.array(embeddings, dtype=np.float32)
 
